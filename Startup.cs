@@ -24,7 +24,7 @@ namespace Mosviewer
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddHttpClient<Infrastructure.MosClient>();
-            //services.AddTransient<Infrastructure.Repository>(x=>new Infrastructure.Repository("Stations"));
+            services.AddTransient<Infrastructure.StationRepository>();
             services.AddRazorPages();
         }
 

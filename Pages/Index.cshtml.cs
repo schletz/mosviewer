@@ -13,28 +13,24 @@ namespace Mosviewer.Pages
     public class IndexModel : PageModel
     {
         private readonly MosClient _client;
+        private readonly StationRepository _repo;
 
-        public List<MosFile> Files = new();
+        //public List<MosFile> Files = new();
         public List<Station> Stations = new();
 
-        public IndexModel(MosClient client)
+        public IndexModel(MosClient client, StationRepository repo)
         {
             _client = client;
+            _repo = repo;
         }
 
-        public async Task OnGetAsync()
+        public void OnGetAsync()
         {
-            Files = await _client.GetFilelisting();
-            await _client.ReadStationData(Files.OrderByDescending(f => f.LastUpdate).First());
-            //Stations = await _repo.Read(db =>
-            //    db.GetCollection<Station>()
-            //    .Find(s => s.Id.StartsWith("111"))
-            //    .Select(s =>
-            //    {
-            //        s.StationValues = db.GetCollection<StationValue>().Find(v => v.StationId == s.Id).ToList();
-            //        return s;
-            //    })
-            //    .ToList());
+            //Files = await _client.GetFilelisting();
+            //await _client.ReadStationData(Files.OrderByDescending(f => f.LastUpdate).First());
+            Stations = _repo.GetStationsWithValues(s => s.Id.StartsWith("110"))
+                .OrderBy(s=>s.Id)
+                .ToList();
         }
     }
 }

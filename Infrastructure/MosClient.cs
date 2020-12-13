@@ -77,83 +77,81 @@ namespace Mosviewer.Infrastructure
                 .EnsureSuccessStatusCode()
                 .Content
                 .ReadAsStreamAsync();
-            using (ZipArchive archive = new ZipArchive(zipStream, ZipArchiveMode.Read))
+            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+            ZipArchiveEntry fileEntry = archive.Entries[0];
+            using var decompressedStream = fileEntry.Open();
+            using var decompressedStreamReader = new StreamReader(decompressedStream, System.Text.Encoding.GetEncoding("ISO-8859-1"));
+            using var reader = XmlReader.Create(decompressedStreamReader, new XmlReaderSettings() { Async = true });
+            while (await reader.ReadAsync())
             {
-                ZipArchiveEntry fileEntry = archive.Entries[0];
-                using var decompressedStream = fileEntry.Open();
-                using var decompressedStreamReader = new StreamReader(decompressedStream, System.Text.Encoding.GetEncoding("ISO-8859-1"));
-                using var reader = XmlReader.Create(decompressedStreamReader, new XmlReaderSettings() { Async = true });
-                while (await reader.ReadAsync())
+                if (reader.NodeType == XmlNodeType.Element)
                 {
-                    if (reader.NodeType == XmlNodeType.Element)
+                    if (reader.Name == "dwd:TimeStep")
                     {
-                        if (reader.Name == "dwd:TimeStep")
+                        timeSteps.Add(DateTime.Parse(
+                            reader.ReadElementContentAsString(),
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.AssumeUniversal));
+                    }
+                    if (reader.Name == "kml:Placemark")
+                    {
+                        stationData = new();
+                    }
+                    if (reader.Name == "kml:name")
+                    {
+                        stationData.Station.StationId = reader.ReadElementContentAsString();
+                    }
+                    if (reader.Name == "kml:description")
+                    {
+                        stationData.Station.StationName = reader.ReadElementContentAsString();
+                    }
+                    if (reader.Name == "dwd:Forecast")
+                    {
+                        curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper();
+                        if (!string.IsNullOrEmpty(curentElementName))
                         {
-                            timeSteps.Add(DateTime.Parse(
-                                reader.ReadElementContentAsString(),
-                                System.Globalization.CultureInfo.InvariantCulture,
-                                System.Globalization.DateTimeStyles.AssumeUniversal));
+                            _valueConverters.TryGetValue(curentElementName, out converter);
                         }
-                        if (reader.Name == "kml:Placemark")
+                        else
                         {
-                            stationData = new();
-                        }
-                        if (reader.Name == "kml:name")
-                        {
-                            stationData.Station.StationId = reader.ReadElementContentAsString();
-                        }
-                        if (reader.Name == "kml:description")
-                        {
-                            stationData.Station.StationName = reader.ReadElementContentAsString();
-                        }
-                        if (reader.Name == "dwd:Forecast")
-                        {
-                            curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper();
-                            if (!string.IsNullOrEmpty(curentElementName))
-                            {
-                                _valueConverters.TryGetValue(curentElementName, out converter);
-                            }
-                            else
-                            {
-                                converter = null;
-                            }
-                        }
-                        if (reader.Name == "dwd:value" && curentElementName != null)
-                        {
-                            string[] values = Regex.Split(reader.ReadElementContentAsString().Trim(), @"\s+");
-                            if (values.Length == timeSteps.Count)
-                            {
-                                var valueDictionary = new Dictionary<DateTime, decimal?>();
-                                int i = 0;
-                                foreach (string v in values)
-                                {
-                                    var time = timeSteps[i++];
-                                    if (decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal value))
-                                    {
-                                        if (converter != null)
-                                            valueDictionary.Add(time, converter(time, value));
-                                        else
-                                            valueDictionary.Add(time, value);
-                                    }
-                                    else
-                                    {
-                                        valueDictionary.Add(time, null);
-                                    }
-                                }
-                                stationData.Values.Add(curentElementName, valueDictionary);
-                            }
+                            converter = null;
                         }
                     }
-                    if (reader.NodeType == XmlNodeType.EndElement)
+                    if (reader.Name == "dwd:value" && curentElementName != null)
                     {
-                        if (reader.Name == "kml:Placemark")
+                        string[] values = Regex.Split(reader.ReadElementContentAsString().Trim(), @"\s+");
+                        if (values.Length == timeSteps.Count)
                         {
-                            result.Add(stationData);
+                            var valueDictionary = new Dictionary<DateTime, decimal?>();
+                            int i = 0;
+                            foreach (string v in values)
+                            {
+                                var time = timeSteps[i++];
+                                if (decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal value))
+                                {
+                                    if (converter != null)
+                                        valueDictionary.Add(time, converter(time, value));
+                                    else
+                                        valueDictionary.Add(time, value);
+                                }
+                                else
+                                {
+                                    valueDictionary.Add(time, null);
+                                }
+                            }
+                            stationData.Values.Add(curentElementName, valueDictionary);
                         }
                     }
                 }
-                return result;
+                if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    if (reader.Name == "kml:Placemark")
+                    {
+                        result.Add(stationData);
+                    }
+                }
             }
+            return result;
 
         }
     }

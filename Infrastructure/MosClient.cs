@@ -73,6 +73,7 @@ namespace Mosviewer.Infrastructure
             var timeSteps = new List<DateTime>();
             var taskList = new List<Task>();
             var station = new Station();
+            var stations = new List<Station>(6000);
 
             using var zipStream = await (await _httpClient.GetAsync(file.Link))
                 .EnsureSuccessStatusCode()
@@ -83,7 +84,7 @@ namespace Mosviewer.Infrastructure
             using var decompressedStream = fileEntry.Open();
             using var decompressedStreamReader = new StreamReader(decompressedStream, System.Text.Encoding.GetEncoding("ISO-8859-1"));
             using var reader = XmlReader.Create(decompressedStreamReader);
-            using var stationWriter = new BinaryWriter(File.Open(@"stations.dat", FileMode.Create, FileAccess.Write, FileShare.Read));
+
             Console.WriteLine($"{DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond} Lese XML...");
             reader.ReadToFollowing("dwd:ProductDefinition");
             while (reader.Read())
@@ -128,11 +129,17 @@ namespace Mosviewer.Infrastructure
                 {
                     if (reader.Name == "kml:Placemark")
                     {
-                        station.Serialize(stationWriter);
+                        stations.Add(station);
                     }
                 }
             }
             await Task.WhenAll(taskList);
+
+            using var stationWriter = new BinaryWriter(File.Open(@"stations.dat", FileMode.Create, FileAccess.Write, FileShare.Read));
+            foreach (var s in stations)
+            {
+                s.Serialize(stationWriter);
+            }
             Console.WriteLine($"Fertig gelesen.");
         }
 
@@ -142,7 +149,7 @@ namespace Mosviewer.Infrastructure
             return Task.Run(() =>
             {
                 var filename = Path.Combine("stationvalues", stationId + ".dat");
-                var stationValues = new List<StationValue>(7200);
+                var stationValues = new List<StationValue>(9600);
                 string? curentElementName = null!;
                 Func<DateTime, decimal, decimal?> converter = null!;
 
@@ -150,11 +157,11 @@ namespace Mosviewer.Infrastructure
                 using var reader = XmlReader.Create(xmlStreamReader);
                 using var stationValuesWriter = new BinaryWriter(File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.Read));
 
-
                 while (reader.Read())
                 {
                     if (reader.Name == "dwd:Forecast")
                     {
+                        curentElementName = null;
                         try
                         {
                             curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper()
@@ -164,7 +171,6 @@ namespace Mosviewer.Infrastructure
                         catch
                         {
                             converter = (time, val) => val;
-                            curentElementName = null;
                         }
                     }
                     if (reader.Name == "dwd:value" && curentElementName != null)

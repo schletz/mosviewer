@@ -4,16 +4,14 @@
     ViewData["Title"] = "Home page";
 }
 
-@foreach (var s in Model.StationDatas)
+@*@foreach (var s in Model.Stations)
 {
-    @if (s.Station.StationId.StartsWith("110"))
-    {
-        <p>
-            @s.Station.StationId (@s.Station.StationName)<br />
-            @foreach (var v in s.Values["TTT"].GroupBy(t => t.Key.Date).Where(g => g.Count() == 24))
-            {
-                <span>@v.Key.ToString("ddd, dd.MM."): @(v.Average(x=>x.Value)?.ToString("0.0") ?? "N/A")</span>
-            }
-        </p>
-    }
-}
+    <p>
+        @s.Id (@s.Name)<br />
+        @foreach (var v in s.StationValues.Where(v => v.Parameter == "TTT").GroupBy(v => v.ForecastDate).Where(g => g.Count() == 24))
+        {
+            <span>@v.Key.ToString("ddd, dd.MM."): @(v.Average(x=>x.Value)?.ToString("0.0") ?? "N/A")</span>
+        }
+    </p>
+
+}*@

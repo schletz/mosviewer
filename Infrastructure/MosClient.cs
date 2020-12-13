@@ -1,8 +1,8 @@
 ﻿using Mosviewer.Domain;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -16,8 +16,9 @@ namespace Mosviewer.Infrastructure
     {
         private static readonly string _url = "https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/";
         private readonly HttpClient _httpClient;
+        //private readonly Repository _repo;
 
-        private static Dictionary<string, Func<DateTime, decimal, decimal?>> _valueConverters = new()
+        private static readonly Dictionary<string, Func<DateTime, decimal, decimal?>> _valueConverters = new()
         {
             { "TTT", (time, val) => val - 273.15M },
             { "T5CM", (time, val) => val - 273.15M },
@@ -25,9 +26,11 @@ namespace Mosviewer.Infrastructure
             { "TX", (time, val) => time.Hour % 6 == 0 ? val - 273.15M : null },
             { "TN", (time, val) => time.Hour % 6 == 0 ? val - 273.15M : null }
         };
+
         public MosClient(HttpClient httpClient)
         {
             _httpClient = httpClient;
+            //_repo = repo;
         }
 
         public async Task<List<MosFile>> GetFilelisting()
@@ -65,24 +68,25 @@ namespace Mosviewer.Infrastructure
         public async Task<MosFile> GetLatestFile() =>
             (await GetFilelisting()).OrderByDescending(f => f.LastUpdate).First();
 
-        public async Task<List<MosStationData>> ReadStationData(MosFile file)
+        public async Task ReadStationData(MosFile file)
         {
             var timeSteps = new List<DateTime>();
-            var result = new List<MosStationData>();
-            var stationData = new MosStationData();
-            string? curentElementName = null;
-            Func<DateTime, decimal, decimal?>? converter = null;
+            var taskList = new List<Task>();
+            var station = new Station();
 
             using var zipStream = await (await _httpClient.GetAsync(file.Link))
                 .EnsureSuccessStatusCode()
                 .Content
                 .ReadAsStreamAsync();
-            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-            ZipArchiveEntry fileEntry = archive.Entries[0];
+            using var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Read);
+            var fileEntry = archive.Entries[0];
             using var decompressedStream = fileEntry.Open();
             using var decompressedStreamReader = new StreamReader(decompressedStream, System.Text.Encoding.GetEncoding("ISO-8859-1"));
-            using var reader = XmlReader.Create(decompressedStreamReader, new XmlReaderSettings() { Async = true });
-            while (await reader.ReadAsync())
+            using var reader = XmlReader.Create(decompressedStreamReader);
+            using var stationWriter = new BinaryWriter(File.Open(@"stations.dat", FileMode.Create, FileAccess.Write, FileShare.Read));
+            Console.WriteLine($"{DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond} Lese XML...");
+            reader.ReadToFollowing("dwd:ProductDefinition");
+            while (reader.Read())
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -95,63 +99,104 @@ namespace Mosviewer.Infrastructure
                     }
                     if (reader.Name == "kml:Placemark")
                     {
-                        stationData = new();
+                        station = new();
                     }
                     if (reader.Name == "kml:name")
                     {
-                        stationData.Station.StationId = reader.ReadElementContentAsString();
+                        station.Id = reader.ReadElementContentAsString();
+                    }
+                    if (reader.Name == "kml:coordinates")
+                    {
+                        var value = reader.ReadElementContentAsString().Split(",");
+                        if (value.Length == 3)
+                        {
+                            station.Lng = decimal.Parse(value[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture);
+                            station.Lat = decimal.Parse(value[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture);
+                            station.Elevation = decimal.Parse(value[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture);
+                        }
                     }
                     if (reader.Name == "kml:description")
                     {
-                        stationData.Station.StationName = reader.ReadElementContentAsString();
+                        station.Name = reader.ReadElementContentAsString();
                     }
-                    if (reader.Name == "dwd:Forecast")
+                    if (reader.Name == "kml:ExtendedData")
                     {
-                        curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper();
-                        if (!string.IsNullOrEmpty(curentElementName))
-                        {
-                            _valueConverters.TryGetValue(curentElementName, out converter);
-                        }
-                        else
-                        {
-                            converter = null;
-                        }
-                    }
-                    if (reader.Name == "dwd:value" && curentElementName != null)
-                    {
-                        string[] values = Regex.Split(reader.ReadElementContentAsString().Trim(), @"\s+");
-                        if (values.Length == timeSteps.Count)
-                        {
-                            var valueDictionary = new Dictionary<DateTime, decimal?>();
-                            int i = 0;
-                            foreach (string v in values)
-                            {
-                                var time = timeSteps[i++];
-                                if (decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal value))
-                                {
-                                    if (converter != null)
-                                        valueDictionary.Add(time, converter(time, value));
-                                    else
-                                        valueDictionary.Add(time, value);
-                                }
-                                else
-                                {
-                                    valueDictionary.Add(time, null);
-                                }
-                            }
-                            stationData.Values.Add(curentElementName, valueDictionary);
-                        }
+                        taskList.Add(ReadStation(station.Id, timeSteps, reader.ReadOuterXml()));
                     }
                 }
                 if (reader.NodeType == XmlNodeType.EndElement)
                 {
                     if (reader.Name == "kml:Placemark")
                     {
-                        result.Add(stationData);
+                        station.Serialize(stationWriter);
                     }
                 }
             }
-            return result;
+            await Task.WhenAll(taskList);
+            Console.WriteLine($"Fertig gelesen.");
+        }
+
+        private Task ReadStation(
+            string stationId, List<DateTime> timeSteps, string xmlStr)
+        {
+            return Task.Run(() =>
+            {
+                var filename = Path.Combine("stationvalues", stationId + ".dat");
+                var stationValues = new List<StationValue>(7200);
+                string? curentElementName = null!;
+                Func<DateTime, decimal, decimal?> converter = null!;
+
+                using var xmlStreamReader = new StringReader(xmlStr);
+                using var reader = XmlReader.Create(xmlStreamReader);
+                using var stationValuesWriter = new BinaryWriter(File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.Read));
+
+
+                while (reader.Read())
+                {
+                    if (reader.Name == "dwd:Forecast")
+                    {
+                        try
+                        {
+                            curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper()
+                                ?? throw new Exception();
+                            converter = _valueConverters[curentElementName];
+                        }
+                        catch
+                        {
+                            converter = (time, val) => val;
+                            curentElementName = null;
+                        }
+                    }
+                    if (reader.Name == "dwd:value" && curentElementName != null)
+                    {
+                        string[] values = Regex.Split(reader.ReadElementContentAsString().Trim(), @"\s+");
+
+                        if (values.Length == timeSteps.Count)
+                        {
+                            var valueDictionary = new Dictionary<DateTime, decimal?>();
+                            int i = 0;
+                            foreach (string v in values)
+                            {
+                                decimal? value = null;
+                                var time = timeSteps[i++];
+                                if (decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal parsedValue))
+                                {
+                                    value = converter(time, parsedValue);
+                                }
+                                var stationValue = new StationValue
+                                {
+                                    StationId = stationId,
+                                    Parameter = curentElementName,
+                                    ForecastDate = time,
+                                    Value = value
+                                };
+                                stationValue.Serialize(stationValuesWriter);
+                            }
+                        }
+                    }
+                }
+            });
+
 
         }
     }

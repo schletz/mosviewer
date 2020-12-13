@@ -4,7 +4,16 @@
     ViewData["Title"] = "Home page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@foreach (var s in Model.StationDatas)
+{
+    @if (s.Station.StationId.StartsWith("110"))
+    {
+        <p>
+            @s.Station.StationId (@s.Station.StationName)<br />
+            @foreach (var v in s.Values["TTT"].GroupBy(t => t.Key.Date).Where(g => g.Count() == 24))
+            {
+                <span>@v.Key.ToString("ddd, dd.MM."): @(v.Average(x=>x.Value)?.ToString("0.0") ?? "N/A")</span>
+            }
+        </p>
+    }
+}

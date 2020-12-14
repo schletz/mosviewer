@@ -31,8 +31,6 @@ namespace Mosviewer.Services
         private readonly HttpClient _httpClient;
         private readonly ILogger<MosService> _logger;
 
-        private MosFile? _latestFile;
-
         public MosService(IHttpClientFactory clientFactory, ILogger<MosService> logger)
         {
             _httpClient = clientFactory.CreateClient();
@@ -61,7 +59,7 @@ namespace Mosviewer.Services
                             match.Groups[3].Value,
                             "dd-MMM-yyyy HH:mm",
                             System.Globalization.CultureInfo.InvariantCulture,
-                            System.Globalization.DateTimeStyles.AssumeUniversal)));
+                            System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime()));
                 }
             }
             if (result.Count == 0)
@@ -101,7 +99,7 @@ namespace Mosviewer.Services
                         timeSteps.Add(DateTime.Parse(
                             reader.ReadElementContentAsString(),
                             System.Globalization.CultureInfo.InvariantCulture,
-                            System.Globalization.DateTimeStyles.AssumeUniversal));
+                            System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime());
                     }
                     if (reader.Name == "kml:Placemark")
                     {
@@ -223,7 +221,10 @@ namespace Mosviewer.Services
 
         public async Task WatchFile(CancellationToken cancellationToken)
         {
-            int delayMin = 2;
+            TimeSpan delay = TimeSpan.FromMinutes(1);
+            DateTime nextDownload = DateTime.MinValue;
+            DateTime lastFileDate = DateTime.MinValue;
+
             if (!Directory.Exists(_directory))
             {
                 Directory.CreateDirectory(_directory);
@@ -232,16 +233,20 @@ namespace Mosviewer.Services
             {
                 try
                 {
-                    _logger.LogInformation($"Prüfe {_url} auf neue Dateien.");
-                    var latestFile = await GetLatestFile(cancellationToken);
-                    if (_latestFile == null || _latestFile.FileChanged < latestFile.FileChanged)
+                    if (nextDownload < DateTime.UtcNow)
                     {
-                        _logger.LogInformation($"Lese {latestFile.Link}.");
-                        var start = DateTime.UtcNow;
-                        await ReadFileAsync(latestFile, cancellationToken);
-                        _logger.LogInformation($"Daten in {(DateTime.UtcNow - start).TotalSeconds:0.0} Sekunden gelesen.");
-                        _latestFile = latestFile;
-                        delayMin = 45;
+                        _logger.LogInformation($"Prüfe {_url} auf neue Dateien.");
+                        var latestFile = await GetLatestFile(cancellationToken);
+                        if (lastFileDate < latestFile.FileChanged)
+                        {
+                            _logger.LogInformation($"Lese {latestFile.Link}.");
+                            var start = DateTime.UtcNow;
+                            await ReadFileAsync(latestFile, cancellationToken);
+                            lastFileDate = latestFile.FileChanged;
+                            nextDownload = new DateTime((DateTime.UtcNow.Ticks / TimeSpan.TicksPerHour + 1) * TimeSpan.TicksPerHour, DateTimeKind.Utc);
+                            _logger.LogInformation($"Daten in {(DateTime.UtcNow - start).TotalSeconds:0.0} Sekunden gelesen. Nächster Download um {nextDownload:HH:mm} UTC.");
+                        }
+
                     }
                 }
                 catch (TaskCanceledException)
@@ -251,8 +256,7 @@ namespace Mosviewer.Services
                 {
                     _logger.LogError(e, e.Message);
                 }
-                await Task.Delay(TimeSpan.FromMinutes(delayMin), cancellationToken);
-                delayMin = 2;
+                await Task.Delay(delay, cancellationToken);
             }
         }
 

@@ -2,17 +2,28 @@
 @model IndexModel
 @{
     ViewData["Title"] = "Home page";
+    var values = Model.Station.Values.GroupBy(v => v.ForecastDate);
 }
 
-@foreach (var s in Model.Stations)
-{
-    <p>
-        @s.Id (@s.Name)<br />
-        @foreach (var v in s.Values.Where(v => v.Parameter == "TTT").GroupBy(v => v.ForecastDate.Date).Where(g => g.Count() == 24))
-        {
-            <span>@v.Key.ToString("ddd, dd.MM."): @(v.Average(x=>x.Value)?.ToString("0.0") ?? "N/A")</span>
-        }
-    </p>
-}
-
+<h4>Vorhersage für die Station @Model.Station.Name (@Model.Station.Id)</h4>
+<table>
+    <thead>
+        <tr>
+            <th>Param.</th>
+            @foreach (var v in values)
+            {
+                <th>@v.Key.ToString(@"dd\. HH\Z")</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>TTT</td>
+            @foreach (var v in values)
+            {
+                <td>@v.Where(v=>v.Parameter == "TTT").Select(v=>v.Value).FirstOrDefault()?.ToString("0.0")</td>
+            }
+        </tr>
+    </tbody>
+</table>
 

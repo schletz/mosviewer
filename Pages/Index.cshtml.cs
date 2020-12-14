@@ -16,7 +16,7 @@ namespace Mosviewer.Pages
         private readonly MosRepository _repo;
 
         //public List<MosFile> Files = new();
-        public List<Station> Stations = new();
+        public Station Station = new();
 
         public IndexModel(MosRepository repo)
         {
@@ -25,11 +25,7 @@ namespace Mosviewer.Pages
 
         public void OnGetAsync()
         {
-            //Files = await _client.GetFilelisting();
-            //await _client.ReadStationData(Files.OrderByDescending(f => f.LastUpdate).First());
-            Stations = _repo.GetStationsWithValues(s => s.Id.StartsWith("110"))
-                .OrderBy(s=>s.Id)
-                .ToList();
+            Station = _repo.GetStationsWithValues(s => s.Id == "11082").First();
         }
     }
 }

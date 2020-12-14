@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace Mosviewer.Infrastructure
 {
-    public class StationRepository
+    public class MosRepository
     {
+        private static readonly string _directory = "mosdata";
+
         public List<Station> GetAllStations()
         {
             return ReadStationFile().ToList();
@@ -28,7 +30,9 @@ namespace Mosviewer.Infrastructure
 
         private IEnumerable<Station> ReadStationFile()
         {
-            using var reader = new BinaryReader(File.Open(@"stations.dat", FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+            using var reader = new BinaryReader(File.Open(
+                Path.Combine(_directory, "stations.dat"), 
+                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             bool endOfStream = false;
             while (!endOfStream)
             {
@@ -47,7 +51,9 @@ namespace Mosviewer.Infrastructure
 
         private IEnumerable<StationValue> ReadStationValueFile(string stationId)
         {
-            using var reader = new BinaryReader(File.Open(Path.Combine("stationvalues", stationId + ".dat"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+            using var reader = new BinaryReader(File.Open(
+                Path.Combine(_directory, stationId + ".dat"), 
+                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             bool endOfStream = false;
             while (!endOfStream)
             {

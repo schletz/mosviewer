@@ -7,20 +7,19 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Mosviewer.Domain;
 using Mosviewer.Infrastructure;
+using Mosviewer.Services;
 
 namespace Mosviewer.Pages
 {
     public class IndexModel : PageModel
     {
-        private readonly MosClient _client;
-        private readonly StationRepository _repo;
+        private readonly MosRepository _repo;
 
         //public List<MosFile> Files = new();
         public List<Station> Stations = new();
 
-        public IndexModel(MosClient client, StationRepository repo)
+        public IndexModel(MosRepository repo)
         {
-            _client = client;
             _repo = repo;
         }
 

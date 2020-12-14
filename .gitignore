@@ -12,7 +12,7 @@
 *.dat
 *.db
 
-stationvalues/
+mosdata/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

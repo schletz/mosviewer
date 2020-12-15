@@ -183,29 +183,28 @@ namespace Mosviewer.Services
                         }
                         if (reader.Name == "dwd:value" && curentElementName != null)
                         {
-                            string[] values = Regex.Split(reader.ReadElementContentAsString().Trim(), @"\s+");
-
-                            if (values.Length == timeSteps.Count)
+                            var data = reader.ReadElementContentAsString().AsSpan().Trim();
+                            int valCount = 0;
+                            while (data.Length > 0)
                             {
-                                var valueDictionary = new Dictionary<DateTime, decimal?>();
-                                int i = 0;
-                                foreach (string v in values)
+                                int end = data.IndexOf(' ');
+                                int len = end != -1 ? end : data.Length;
+                                var time = timeSteps[valCount++];
+
+                                decimal? value = decimal.TryParse(data.Slice(0, len),
+                                    System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture,
+                                    out decimal v) ? converter(time, v) : null;
+                                var stationValue = new StationValue
                                 {
-                                    decimal? value = null;
-                                    var time = timeSteps[i++];
-                                    if (decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal parsedValue))
-                                    {
-                                        value = converter(time, parsedValue);
-                                    }
-                                    var stationValue = new StationValue
-                                    {
-                                        StationId = stationId,
-                                        Parameter = curentElementName,
-                                        ForecastDate = time,
-                                        Value = value
-                                    };
-                                    stationValue.Serialize(stationValuesWriter);
-                                }
+                                    StationId = stationId,
+                                    Parameter = curentElementName,
+                                    ForecastDate = time,
+                                    Value = value
+                                };
+                                stationValue.Serialize(stationValuesWriter);
+
+                                data = data.Slice(len).TrimStart();
                             }
                         }
                     }

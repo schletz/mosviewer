@@ -3,9 +3,10 @@
 @section Head
 {
     <style type="text/css">
-        /*        #map {
-            height:400px;
-        }*/
+        #map {
+            width: 100%;
+            height: 100%;
+        }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
           integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
@@ -14,9 +15,8 @@
             integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
             crossorigin=""></script>
 }
-<div class="row">
-    <div class="col-12 vh-100" id="map"></div>
-</div>
+
+<div id="map"></div>
 
 <script type="text/javascript">
     const stations = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stations))');
@@ -39,8 +39,9 @@
                 radius: 10,
                 color: s.Elevation < 1000 ? '#3388ff' : '#000000'
             })
-            .on("click", (args) => {
-                window.location.href = "/Station/" + args.target.stationId;
+            .on("click", (e) => {
+                    //window.location.href = "/Station/" + e.target.stationId;
+                window.open("/Station/" + e.target.stationId, "_blank");
             })
             .bindTooltip(s.HtmlLabel)
             .addTo(map);

@@ -26,7 +26,12 @@ namespace Mosviewer.Services
             { "TD", (time, val) => val - 273.15M },
             { "TX", (time, val) => time.Hour % 6 == 0 ? val - 273.15M : null },
             { "TN", (time, val) => time.Hour % 6 == 0 ? val - 273.15M : null },
-            { "PPPP", (time, val) => val / 100M }
+            { "PPPP", (time, val) => val / 100M },
+            { "SUND1", (time, val) => val / 3600 * 100 },
+            { "FF", (time, val) => val * 3.6M },
+            { "FX1", (time, val) => val * 3.6M },
+            { "FX3", (time, val) => val * 3.6M },
+            { "FXH", (time, val) => val * 3.6M }
         };
 
         private readonly HttpClient _httpClient;
@@ -189,7 +194,7 @@ namespace Mosviewer.Services
                             {
                                 int end = data.IndexOf(' ');
                                 int len = end != -1 ? end : data.Length;
-                                var time = timeSteps[valCount++];
+                                DateTime time = timeSteps[valCount++];
 
                                 decimal? value = decimal.TryParse(data.Slice(0, len),
                                     System.Globalization.NumberStyles.Any,

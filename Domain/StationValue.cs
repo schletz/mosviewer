@@ -14,7 +14,8 @@ namespace Mosviewer.Domain
             writer.Write(StationId);
             writer.Write(Parameter);
             writer.Write((int)(ForecastDate.Ticks / TimeSpan.TicksPerMinute));
-            writer.Write(Value ?? -999);
+            writer.Write(Value.HasValue);
+            if (Value.HasValue) writer.Write(Value.Value);
         }
         public static StationValue Deserialize(BinaryReader reader)
         {
@@ -23,9 +24,8 @@ namespace Mosviewer.Domain
                 StationId = reader.ReadString(),
                 Parameter = reader.ReadString(),
                 ForecastDate = new DateTime(reader.ReadInt32() * TimeSpan.TicksPerMinute, DateTimeKind.Utc),
-                Value = reader.ReadDecimal()
+                Value = reader.ReadBoolean() ? reader.ReadDecimal() : null
             };
-            if (stationValue.Value == -999) { stationValue.Value = null; }
             return stationValue;
         }
     }

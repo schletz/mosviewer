@@ -11,6 +11,7 @@
 *.sln.docstates
 *.dat
 *.db
+*.7z
 
 mosdata/
 

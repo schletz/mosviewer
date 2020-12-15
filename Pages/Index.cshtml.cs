@@ -13,19 +13,19 @@ namespace Mosviewer.Pages
 {
     public class IndexModel : PageModel
     {
-        private readonly MosRepository _repo;
+        private readonly MosService _service;
 
-        //public List<MosFile> Files = new();
-        public Station Station = new();
+        public List<Station> Stations = new();
 
-        public IndexModel(MosRepository repo)
+        public IndexModel(MosService service)
         {
-            _repo = repo;
+            _service = service;
         }
 
         public void OnGetAsync()
         {
-            Station = _repo.GetStationsWithValues(s => s.Id == "11082").First();
+            Stations = _service.GetAllStations();
         }
+
     }
 }

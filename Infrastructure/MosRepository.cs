@@ -16,6 +16,12 @@ namespace Mosviewer.Infrastructure
             return ReadStationFile().ToList();
         }
 
+        public List<Station> GetStations(Func<Station, bool> predicate)
+        {
+            return ReadStationFile().Where(predicate).ToList();
+        }
+
+
         public IEnumerable<Station> GetStationsWithValues(Func<Station, bool> predicate)
         {
             return ReadStationFile()
@@ -30,8 +36,11 @@ namespace Mosviewer.Infrastructure
 
         private IEnumerable<Station> ReadStationFile()
         {
+            var filename = Path.Combine(_directory, "stations.dat");
+            if (!File.Exists(filename)) { yield break; }
+
             using var reader = new BinaryReader(File.Open(
-                Path.Combine(_directory, "stations.dat"), 
+                filename, 
                 FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             bool endOfStream = false;
             while (!endOfStream)
@@ -51,8 +60,11 @@ namespace Mosviewer.Infrastructure
 
         private IEnumerable<StationValue> ReadStationValueFile(string stationId)
         {
+            var filename = Path.Combine(_directory, stationId + ".dat");
+            if (!File.Exists(filename)) { yield break; }
+
             using var reader = new BinaryReader(File.Open(
-                Path.Combine(_directory, stationId + ".dat"), 
+                filename, 
                 FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             bool endOfStream = false;
             while (!endOfStream)

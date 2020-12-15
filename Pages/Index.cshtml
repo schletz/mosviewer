@@ -1,29 +1,50 @@
 ﻿@page
 @model IndexModel
-@{
-    ViewData["Title"] = "Home page";
-    var values = Model.Station.Values.GroupBy(v => v.ForecastDate);
+@section Head
+{
+    <style type="text/css">
+        /*        #map {
+            height:400px;
+        }*/
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+          crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+            integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+            crossorigin=""></script>
 }
+<div class="row">
+    <div class="col-12 vh-100" id="map"></div>
+</div>
 
-<h4>Vorhersage für die Station @Model.Station.Name (@Model.Station.Id)</h4>
-<table>
-    <thead>
-        <tr>
-            <th>Param.</th>
-            @foreach (var v in values)
-            {
-                <th>@v.Key.ToString(@"dd\. HH\Z")</th>
-            }
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>TTT</td>
-            @foreach (var v in values)
-            {
-                <td>@v.Where(v=>v.Parameter == "TTT").Select(v=>v.Value).FirstOrDefault()?.ToString("0.0")</td>
-            }
-        </tr>
-    </tbody>
-</table>
+<script type="text/javascript">
+    const stations = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stations))');
+    const map = L.map('map', {
+        center: [47.6, 13.7],
+        zoom: 8
+    });
+    //L.tileLayer('https://api.mapbox.com/v4/mapbox.mapbox-streets-v7,mapbox.92olaqdt,mapbox.mapbox-terrain-v2,mapbox.9tm8dx88,mapbox.4suez6c9,mapbox.akwnx50w,mapbox.8x70v9py,mapbox.b1l3wqbs,mapbox.cc9j0p61,mapbox.d4advw8k/7/70/46.vector.pbf?sku=101z11woHptXN&access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA', {
+    L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+        maxZoom: 10,
+        attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+            'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+        id: 'mapbox/streets-v11',
+        tileSize: 512,
+        zoomOffset: -1
+    }).addTo(map);
+    stations.forEach(s => {
+        const marker = L
+            .circleMarker([s.Lat, s.Lng], {
+                radius: 10,
+                color: s.Elevation < 1000 ? '#3388ff' : '#000000'
+            })
+            .on("click", (args) => {
+                window.location.href = "/Station/" + args.target.stationId;
+            })
+            .bindTooltip(s.HtmlLabel)
+            .addTo(map);
+        marker.stationId = s.Id;
+    })
 
+</script>

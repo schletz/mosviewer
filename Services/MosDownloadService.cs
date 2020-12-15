@@ -1,0 +1,275 @@
+﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Mosviewer.Domain;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
+
+namespace Mosviewer.Services
+{
+
+    public class MosDownloadService : IHostedService
+    {
+        private static readonly string _url = "https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/";
+        private static readonly string _directory = "mosdata";
+        private static readonly Dictionary<string, Func<DateTime, decimal, decimal?>> _valueConverters = new()
+        {
+            { "TTT", (time, val) => val - 273.15M },
+            { "T5CM", (time, val) => val - 273.15M },
+            { "TD", (time, val) => val - 273.15M },
+            { "TX", (time, val) => time.Hour % 6 == 0 ? val - 273.15M : null },
+            { "TN", (time, val) => time.Hour % 6 == 0 ? val - 273.15M : null },
+            { "PPPP", (time, val) => val / 100M }
+        };
+
+        private readonly HttpClient _httpClient;
+        private readonly ILogger<MosDownloadService> _logger;
+
+        public MosDownloadService(IHttpClientFactory clientFactory, ILogger<MosDownloadService> logger)
+        {
+            _httpClient = clientFactory.CreateClient();
+            _logger = logger;
+        }
+
+        public async Task<List<MosFile>> GetFilelisting(CancellationToken cancellationToken)
+        {
+            using var response = await (await _httpClient.GetAsync(_url, cancellationToken))
+                .EnsureSuccessStatusCode()
+                .Content
+                .ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(response, System.Text.Encoding.UTF8);
+            string? line;
+            List<MosFile> result = new();
+            while ((line = reader.ReadLine()) != null)
+            {
+                // Parse <a href="MOSMIX_S_2020121204_240.kmz">MOSMIX_S_2020121204_240.kmz</a>                        12-Dec-2020 04:23            35836678
+                var match = Regex.Match(line, @"<a href=""([^""]+)"">([^<]+)</a>\s+(.{17})");
+                if (match.Success)
+                {
+                    result.Add(new MosFile(
+                        _url + match.Groups[1].Value,
+                        match.Groups[2].Value,
+                        DateTime.ParseExact(
+                            match.Groups[3].Value,
+                            "dd-MMM-yyyy HH:mm",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime()));
+                }
+            }
+            if (result.Count == 0)
+            {
+                throw new ApplicationException($"{_url} enthält keine Dateien.");
+            }
+            return result;
+        }
+
+        public async Task<MosFile> GetLatestFile(CancellationToken cancellationToken) =>
+            (await GetFilelisting(cancellationToken)).OrderByDescending(f => f.FileChanged).First();
+
+        public async Task ReadFileAsync(MosFile file, CancellationToken cancellationToken)
+        {
+            var timeSteps = new List<DateTime>();
+            var taskList = new List<Task>();
+            var station = new Station();
+            var stations = new List<Station>(6000);
+
+            using var zipStream = await (await _httpClient.GetAsync(file.Link, cancellationToken))
+                .EnsureSuccessStatusCode()
+                .Content
+                .ReadAsStreamAsync(cancellationToken);
+            using var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Read);
+            var fileEntry = archive.Entries[0];
+            using var decompressedStream = fileEntry.Open();
+            using var decompressedStreamReader = new StreamReader(decompressedStream, System.Text.Encoding.GetEncoding("ISO-8859-1"));
+            using var reader = XmlReader.Create(decompressedStreamReader);
+
+            reader.ReadToFollowing("dwd:ProductDefinition");
+            while (reader.Read() && !cancellationToken.IsCancellationRequested)
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    if (reader.Name == "dwd:TimeStep")
+                    {
+                        timeSteps.Add(DateTime.Parse(
+                            reader.ReadElementContentAsString(),
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime());
+                    }
+                    if (reader.Name == "kml:Placemark")
+                    {
+                        station = new();
+                    }
+                    if (reader.Name == "kml:name")
+                    {
+                        station.Id = reader.ReadElementContentAsString();
+                    }
+                    if (reader.Name == "kml:coordinates")
+                    {
+                        var value = reader.ReadElementContentAsString().Split(",");
+                        if (value.Length == 3)
+                        {
+                            station.Lng = decimal.Parse(value[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture);
+                            station.Lat = decimal.Parse(value[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture);
+                            station.Elevation = decimal.Parse(value[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                    }
+                    if (reader.Name == "kml:description")
+                    {
+                        station.Name = reader.ReadElementContentAsString();
+                    }
+                    if (reader.Name == "kml:ExtendedData")
+                    {
+                        taskList.Add(ReadStationData(station.Id, timeSteps, reader.ReadOuterXml(), cancellationToken));
+                    }
+                }
+                if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    if (reader.Name == "kml:Placemark")
+                    {
+                        stations.Add(station);
+                    }
+                }
+            }
+            await Task.WhenAll(taskList);
+
+            using var stationWriter = new BinaryWriter(File.Open(
+                Path.Combine(_directory, "stations.dat"),
+                FileMode.Create, FileAccess.Write, FileShare.Read));
+            foreach (var s in stations)
+            {
+                s.Serialize(stationWriter);
+            }
+        }
+
+        private Task ReadStationData(
+            string stationId, List<DateTime> timeSteps, string xmlStr,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    var filename = Path.Combine(_directory, stationId + ".dat");
+                    var stationValues = new List<StationValue>(9600);
+                    string? curentElementName = null!;
+                    Func<DateTime, decimal, decimal?> converter = null!;
+
+                    using var xmlStreamReader = new StringReader(xmlStr);
+                    using var reader = XmlReader.Create(xmlStreamReader);
+                    using var stationValuesWriter = new BinaryWriter(File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.Read));
+
+                    while (reader.Read())
+                    {
+                        if (reader.Name == "dwd:Forecast")
+                        {
+                            curentElementName = null;
+                            try
+                            {
+                                curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper()
+                                    ?? throw new Exception();
+                                converter = _valueConverters[curentElementName];
+                            }
+                            catch
+                            {
+                                converter = (time, val) => val;
+                            }
+                        }
+                        if (reader.Name == "dwd:value" && curentElementName != null)
+                        {
+                            string[] values = Regex.Split(reader.ReadElementContentAsString().Trim(), @"\s+");
+
+                            if (values.Length == timeSteps.Count)
+                            {
+                                var valueDictionary = new Dictionary<DateTime, decimal?>();
+                                int i = 0;
+                                foreach (string v in values)
+                                {
+                                    decimal? value = null;
+                                    var time = timeSteps[i++];
+                                    if (decimal.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal parsedValue))
+                                    {
+                                        value = converter(time, parsedValue);
+                                    }
+                                    var stationValue = new StationValue
+                                    {
+                                        StationId = stationId,
+                                        Parameter = curentElementName,
+                                        ForecastDate = time,
+                                        Value = value
+                                    };
+                                    stationValue.Serialize(stationValuesWriter);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (TaskCanceledException) { }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, e.Message);
+                }
+            }, cancellationToken);
+
+
+        }
+
+        public async Task WatchFile(CancellationToken cancellationToken)
+        {
+            TimeSpan delay = TimeSpan.FromMinutes(1);
+            DateTime nextDownload = DateTime.MinValue;
+            DateTime lastFileDate = DateTime.MinValue;
+
+            if (!Directory.Exists(_directory))
+            {
+                Directory.CreateDirectory(_directory);
+            }
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    if (nextDownload < DateTime.UtcNow)
+                    {
+                        _logger.LogInformation($"Prüfe {_url} auf neue Dateien.");
+                        var latestFile = await GetLatestFile(cancellationToken);
+                        if (lastFileDate < latestFile.FileChanged)
+                        {
+                            _logger.LogInformation($"Lese {latestFile.Link}.");
+                            var start = DateTime.UtcNow;
+                            await ReadFileAsync(latestFile, cancellationToken);
+                            lastFileDate = latestFile.FileChanged;
+                            nextDownload = new DateTime((DateTime.UtcNow.Ticks / TimeSpan.TicksPerHour + 1) * TimeSpan.TicksPerHour, DateTimeKind.Utc);
+                            _logger.LogInformation($"Daten in {(DateTime.UtcNow - start).TotalSeconds:0.0} Sekunden gelesen. Nächster Download um {nextDownload:HH:mm} UTC.");
+                        }
+
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, e.Message);
+                }
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            _ = WatchFile(cancellationToken);
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+}

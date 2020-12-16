@@ -28,7 +28,7 @@ namespace Mosviewer.Controllers
         [HttpGet("{id}")]
         public ActionResult<List<MosService.Forecast>> GetStationValues(string id)
         {
-            var values = _service.GetStationValues(id);
+            var values = _service.GetForecast(id);
             if (values == null) { return NotFound(); }
 
             return Ok(values);

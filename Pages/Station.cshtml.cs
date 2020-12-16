@@ -13,6 +13,7 @@ namespace Mosviewer.Pages
     {
         private readonly MosService _service;
         public Station Station { get; private set; } = new();
+        public Modelinfo Modelinfo { get; private set; } = new();
         public Dictionary<string, MosService.Forecast> Forecasts { get; private set; } = new();
         public string? Message { get; private set; }
         public StationModel(MosService service)
@@ -22,7 +23,9 @@ namespace Mosviewer.Pages
 
         public IActionResult OnGet(string id)
         {
-            var station = _service.GetAllStations().SingleOrDefault(s => s.Id == id);
+            Modelinfo = _service.GetModelinfo() ?? new();
+
+            var station = _service.GetStation(id);
             if (station == null)
             {
                 Message = $"Die Station {id} wurde nicht gefunden.";
@@ -31,7 +34,7 @@ namespace Mosviewer.Pages
             Station = station;
             ViewData["Title"] = $"{station.Id} {station.Name}";
 
-            var forecasts = _service.GetStationValues(id);
+            var forecasts = _service.GetForecast(id);
             if (forecasts == null)
             {
                 Message = $"Die Station {id} wurde nicht gefunden.";

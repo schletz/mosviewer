@@ -80,7 +80,7 @@ namespace Mosviewer.Services
 
         public async Task ReadFileAsync(MosFile file, CancellationToken cancellationToken)
         {
-            var timeSteps = new List<DateTime>();
+            var modelinfo = new Modelinfo();
             var taskList = new List<Task>();
             var station = new Station();
             var stations = new List<Station>(6000);
@@ -100,9 +100,25 @@ namespace Mosviewer.Services
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
+                    if (reader.Name == "dwd:IssueTime")
+                    {
+                        modelinfo.IssueTime = DateTime.Parse(
+                            reader.ReadElementContentAsString(),
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime();
+                    }
+                    if (reader.Name == "dwd:Model")
+                    {
+                        modelinfo.ModelReferenceTimes.Add(
+                            reader.GetAttribute("dwd:name")!,
+                            DateTime.Parse(
+                                reader.GetAttribute("dwd:referenceTime")!,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime());
+                    }
                     if (reader.Name == "dwd:TimeStep")
                     {
-                        timeSteps.Add(DateTime.Parse(
+                        modelinfo.TimeSteps.Add(DateTime.Parse(
                             reader.ReadElementContentAsString(),
                             System.Globalization.CultureInfo.InvariantCulture,
                             System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime());
@@ -131,7 +147,7 @@ namespace Mosviewer.Services
                     }
                     if (reader.Name == "kml:ExtendedData")
                     {
-                        taskList.Add(ReadStationData(station.Id, timeSteps, reader.ReadOuterXml(), cancellationToken));
+                        taskList.Add(ReadStationData(station.Id, modelinfo.TimeSteps, reader.ReadOuterXml(), cancellationToken));
                     }
                 }
                 if (reader.NodeType == XmlNodeType.EndElement)
@@ -144,13 +160,24 @@ namespace Mosviewer.Services
             }
             await Task.WhenAll(taskList);
 
-            using var stationWriter = new BinaryWriter(File.Open(
+            using (var stationWriter = new BinaryWriter(File.Open(
                 Path.Combine(_directory, "stations.dat"),
-                FileMode.Create, FileAccess.Write, FileShare.Read));
-            foreach (var s in stations)
+                FileMode.Create, FileAccess.Write, FileShare.Read)))
             {
-                s.Serialize(stationWriter);
+                foreach (var s in stations)
+                {
+                    s.Serialize(stationWriter);
+                }
             }
+
+
+            using (var modelinfoWriter = new BinaryWriter(File.Open(
+                Path.Combine(_directory, "modelinfo.dat"),
+                FileMode.Create, FileAccess.Write, FileShare.Read)))
+            {
+                modelinfo.Serialize(modelinfoWriter);
+            }
+
         }
 
         private Task ReadStationData(
@@ -209,7 +236,7 @@ namespace Mosviewer.Services
                                 };
                                 stationValue.Serialize(stationValuesWriter);
 
-                                data = data.Slice(len).TrimStart();
+                                data = data[len..].TrimStart();
                             }
                         }
                     }
@@ -248,7 +275,7 @@ namespace Mosviewer.Services
                             var start = DateTime.UtcNow;
                             await ReadFileAsync(latestFile, cancellationToken);
                             lastFileDate = latestFile.FileChanged;
-                            nextDownload = new DateTime((DateTime.UtcNow.Ticks / TimeSpan.TicksPerHour + 1) * TimeSpan.TicksPerHour, DateTimeKind.Utc);
+                            nextDownload = new DateTime((lastFileDate.Ticks / TimeSpan.TicksPerHour + 1) * TimeSpan.TicksPerHour, DateTimeKind.Utc);
                             _logger.LogInformation($"Daten in {(DateTime.UtcNow - start).TotalSeconds:0.0} Sekunden gelesen. Nächster Download um {nextDownload:HH:mm} UTC.");
                         }
 

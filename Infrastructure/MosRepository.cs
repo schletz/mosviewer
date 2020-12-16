@@ -11,28 +11,29 @@ namespace Mosviewer.Infrastructure
     {
         private static readonly string _directory = "mosdata";
 
-        public List<Station> GetAllStations()
+
+        public Modelinfo? GetModelinfo()
         {
-            return ReadStationFile().ToList();
+            var filename = Path.Combine(_directory, "modelinfo.dat");
+            if (!File.Exists(filename)) { return null; }
+
+            using var reader = new BinaryReader(File.Open(
+                filename,
+                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+            return Modelinfo.Deserialize(reader);
         }
 
-        public List<Station> GetStations(Func<Station, bool> predicate)
-        {
-            return ReadStationFile().Where(predicate).ToList();
-        }
+        public Station? GetStation(string id) =>
+            ReadStationFile().FirstOrDefault(s => s.Id == id);
 
+        public List<Station> GetStations(Func<Station, bool> predicate) =>
+            ReadStationFile().Where(predicate).ToList();
 
-        public IEnumerable<Station> GetStationsWithValues(Func<Station, bool> predicate)
-        {
-            return ReadStationFile()
-                .Where(predicate)
-                .Select(s =>
-                {
-                    s.Values = ReadStationValueFile(s.Id).ToList();
-                    return s;
-                });
+        public List<Station> GetAllStations() =>
+            ReadStationFile().ToList();
 
-        }
+        public List<StationValue> GetStationValues(string id) =>
+            ReadStationValueFile(id).ToList();
 
         private IEnumerable<Station> ReadStationFile()
         {
@@ -40,7 +41,7 @@ namespace Mosviewer.Infrastructure
             if (!File.Exists(filename)) { yield break; }
 
             using var reader = new BinaryReader(File.Open(
-                filename, 
+                filename,
                 FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             bool endOfStream = false;
             while (!endOfStream)
@@ -64,7 +65,7 @@ namespace Mosviewer.Infrastructure
             if (!File.Exists(filename)) { yield break; }
 
             using var reader = new BinaryReader(File.Open(
-                filename, 
+                filename,
                 FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             bool endOfStream = false;
             while (!endOfStream)

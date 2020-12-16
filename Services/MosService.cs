@@ -28,6 +28,8 @@ namespace Mosviewer.Services
         }
 
         public List<Station> GetAllStations() => _repo.GetAllStations();
+        public Station? GetStation(string id) => _repo.GetStation(id);
+        public Modelinfo? GetModelinfo() => _repo.GetModelinfo();
 
         public List<Station> GetNearbyStations(double lat, double lng, double distance)
         {
@@ -42,9 +44,9 @@ namespace Mosviewer.Services
             (double)s.Lng >= lng - distance / kmPerLng && (double)s.Lng <= lng + distance / kmPerLng);
         }
 
-        public Dictionary<string, Forecast>? GetStationValues(string id)
+        public Dictionary<string, Forecast>? GetForecast(string stationId)
         {
-            var values = _repo.GetStationsWithValues(s => s.Id == id).FirstOrDefault()?.Values;
+            var values = _repo.GetStationValues(stationId);
             if (values == null) { return null; }
 
             return values
@@ -61,7 +63,7 @@ namespace Mosviewer.Services
                         .Select(g => new decimal[] { g.ForecastDate.ToJavascriptTimestamp(), g.Value!.Value })
                         .ToList()
                 })
-                .ToDictionary(f=>f.Param, f=>f);
+                .ToDictionary(f => f.Param, f => f);
         }
 
 

@@ -26,11 +26,21 @@
     <img src="~/overview.png" id="legende">
     <div id="windDiagram"></div>
 </div>
-
+<p>
+    <small>
+        <em>Modellinformationen:</em><br />
+        @foreach (var m in Model.Modelinfo.ModelReferenceTimes)
+        {
+            <span>@m.Value: @m.Key</span><br />
+        }
+    </small>
+</p>
 <script type="text/javascript">
     const data = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Forecasts))');
-    const minDate = data["TTT"].MinTime;
-    const maxDate = data["TTT"].MaxTime;
+    const station = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Station))');
+    const modelinfo = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Modelinfo))');
+    const minDate = Date.parse(modelinfo.TimeSteps[0]);
+    const maxDate = Date.parse(modelinfo.TimeSteps[modelinfo.TimeSteps.length - 1]);
     const sigWeather = {
         // https://www.nodc.noaa.gov/archive/arc0021/0000907/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
         "0": { desc: "clear sky", color: "#ffffff" },

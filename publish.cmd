@@ -3,3 +3,4 @@ dotnet publish -c Release -o Release -p:PublishReadyToRun=true -p:PublishSingleF
 dotnet dev-certs https --trust
 del Release.7z
 "C:\Program Files\7-Zip\7z.exe" a -mx=9 Release.7z Release
+syncGit.cmd

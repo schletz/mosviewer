@@ -102,7 +102,7 @@
         // TEMPERATUR
         // *************************************************************************************
     Highcharts.chart('tempDiagram', {
-            title: { text: 'MIX Station @Model.Station.Id @Model.Station.Name (@Model.Station.Elevation m)', align: "left", margin: 0, x: 100 },
+            title: { text: 'MIX Station @Model.Station.Id @Model.Station.Name (Lat: @Model.Station.Lat°, Lng: @Model.Station.Lng°, Elev: @Model.Station.Elevation m)', align: "left", margin: 0, x: 100 },
             xAxis: {
                 type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
                 min: minDate, max: maxDate,
@@ -161,7 +161,10 @@
                     name: 'Tmax',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },
-                    data: data["TX"].Values,
+                    data: data["TX"].Values.filter(v => {
+                        const hour = v[0] / 3600000;
+                        return (station.Lng < 0 || station.Lng > 90 || hour % 24 == 18);
+                    }),
                     enableMouseTracking: false,
                     color: "#920000",
                     dataLabels: { enabled: true, format: '{point.y:.0f}' },
@@ -172,7 +175,10 @@
                     name: 'Tmin',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },
-                    data: data["TN"].Values,
+                    data: data["TN"].Values.filter(v => {
+                        const hour = v[0] / 3600000;
+                        return (station.Lng < 0 || station.Lng > 90 || hour % 24 == 6)
+                    }),
                     enableMouseTracking: false,
                     color: "#001ed6",
                     dataLabels: { enabled: true, format: '{point.y:.0f}' },

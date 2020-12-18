@@ -113,6 +113,8 @@
                 {
                     id: "temp", labels: { format: '{value}°C' }, title: { text: null },
                     tickInterval: 2, minorGridLineColor: "#cccccc", gridLineColor: "#999999",
+                    min: Math.min(data["TTT"].MinValue, data["TN"].MinValue) - 2, startOnTick: true,
+                    max: Math.max(data["TTT"].MaxValue, data["TX"].MaxValue), endOnTick: true,
                     plotLines: [{ value: 0, color: '#000000', width: 2 }]
                 },
                 {

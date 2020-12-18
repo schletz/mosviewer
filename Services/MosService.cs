@@ -19,6 +19,8 @@ namespace Mosviewer.Services
             public long MinTime { get; init; }
             public long MaxTime { get; init; }
             public int Count { get; init; }
+            public decimal? MinValue { get; init; }
+            public decimal? MaxValue { get; init; }
             public List<decimal[]> Values { get; init; } = new();
         }
 
@@ -56,6 +58,8 @@ namespace Mosviewer.Services
                     Param = g.Key,
                     MinTime = g.Min(g => g.ForecastDate).ToJavascriptTimestamp(),
                     MaxTime = g.Max(g => g.ForecastDate).ToJavascriptTimestamp(),
+                    MinValue = g.Min(g => g.Value),
+                    MaxValue = g.Max(g => g.Value),
                     Count = g.Count(x => x.Value.HasValue),
                     Values = g
                         .Where(g => g.Value.HasValue)

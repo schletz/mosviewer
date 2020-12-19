@@ -11,5 +11,5 @@ REM Dateiname GfsDownloader20190107.7z z. B. generieren
 SET FILENAME=%CurrDirName%%mydate%.7z
 
 del /F /Q "%OUTPATH%\%CurrDirName%*.7z"
-%ZIP% a -mx=9 "%OUTPATH%\%FILENAME%" "..\%CurrDirName%" -xr!packages -xr!netcoreapp3.1 -xr!.vscode -xr!.git -xr!TestResults -xr!.vs -xr!Release -xr!Debug -xr!bin -xr!obj
+%ZIP% a -mx=9 "%OUTPATH%\%FILENAME%" "..\%CurrDirName%" -xr!*.7z -xr!mosdata -xr!packages -xr!.vscode -xr!.git -xr!TestResults -xr!.vs -xr!Release -xr!Debug -xr!bin -xr!obj
 pause

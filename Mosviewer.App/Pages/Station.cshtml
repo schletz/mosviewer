@@ -15,26 +15,34 @@
     </style>
 }
 
-@if (!string.IsNullOrEmpty(Model.Message))
-{
-    <p class="message"><em>@Model.Message</em></p>
-}
+<div class="container">
+    <h4>MOS MIX Station @Model.Station.Id @Model.Station.Name (Lat: @Model.Station.Lat&thinsp;°, Lng: @Model.Station.Lng&thinsp;°, Elev: @Model.Station.Elevation&thinsp;m)</h4>
 
-<div class="charts">
-    <div id="tempDiagram"></div>
-    <div id="ndsDiagram"></div>
-    <img src="~/overview.png" id="legende">
-    <div id="windDiagram"></div>
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <p class="message"><em>@Model.Message</em></p>
+    }
+
+    <div class="charts">
+        <div id="tempDiagram"></div>
+        <div id="ndsDiagram"></div>
+        <img src="~/overview.png" id="legende">
+        <div id="windDiagram"></div>
+    </div>
+    <div class="infos">
+        <p>
+            <small>
+                <em>Modellinformationen:</em><br />
+                @foreach (var m in Model.Modelinfo.ModelReferenceTimes)
+                {
+                    <span>@m.Value: @m.Key</span><br />
+                }
+            </small>
+        </p>
+    </div>
 </div>
-<p>
-    <small>
-        <em>Modellinformationen:</em><br />
-        @foreach (var m in Model.Modelinfo.ModelReferenceTimes)
-        {
-            <span>@m.Value: @m.Key</span><br />
-        }
-    </small>
-</p>
+
+
 <script type="text/javascript">
     const data = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Forecasts))');
     const station = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Station))');
@@ -85,8 +93,8 @@
             weekdays: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
         },
         chart: {
-            marginLeft: 100,
-            marginRight: 100,
+            marginLeft: 75,
+            marginRight: 75,
             spacingRight: 0,
             spacingLeft: 0,
             spacingTop: 10,
@@ -102,7 +110,7 @@
         // TEMPERATUR
         // *************************************************************************************
     Highcharts.chart('tempDiagram', {
-            title: { text: 'MIX Station @Model.Station.Id @Model.Station.Name (Lat: @Model.Station.Lat°, Lng: @Model.Station.Lng°, Elev: @Model.Station.Elevation m)', align: "left", margin: 0, x: 100 },
+            title: null,
             xAxis: {
                 type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
                 min: minDate, max: maxDate,
@@ -296,7 +304,7 @@
         //// WIND
         //// *************************************************************************************
         Highcharts.chart('windDiagram', {
-            title: { text: "10m Wind und Böenwahrsch. für 45 (gelb), 75 (or.) und 100 (rot) km/h", align: "left", margin: 0, x: 100 },
+            title: { text: "10m Windböen und Böenwahrsch. für 45 (gelb), 75 (or.) und 100 (rot) km/h", align: "left", margin: 0, x: 100 },
             chart: { alignTicks: true },
             xAxis: {
                 type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
@@ -319,9 +327,10 @@
             ],
             series: [
                 {
-                    name: '10m Wind',
+                    name: '10m Windböen',
                     type: 'line',
-                    data: data["FF"].Values,
+                    //data: data["FF"].Values,
+                    data: data["FX3"].Values,
                     tooltip: { valueSuffix: 'km/h', valueDecimals: 0 },
                     color: "#000000",
                     yAxis: "speed",

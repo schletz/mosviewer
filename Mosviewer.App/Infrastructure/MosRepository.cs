@@ -9,7 +9,7 @@ namespace Mosviewer.Infrastructure
 {
     public class MosRepository
     {
-        private static readonly string _directory = "mosdata";
+        private static readonly string _directory = "../mosdata";
 
 
         public Modelinfo? GetModelinfo()

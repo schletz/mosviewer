@@ -1,8 +1,4 @@
-Ôªøusing Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Mosviewer.Domain;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,14 +7,16 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Mosviewer.Domain;
 
-namespace Mosviewer.Services
+namespace Mosviewer.Service
 {
-
-    public class MosDownloadService : IHostedService
+    public class Worker : BackgroundService
     {
         private static readonly string _url = "https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_S/all_stations/kml/";
-        private static readonly string _directory = "mosdata";
+        private static readonly string _directory = "../mosdata";
         private static readonly Dictionary<string, Func<DateTime, decimal, decimal?>> _valueConverters = new()
         {
             { "TTT", (time, val) => val - 273.15M },
@@ -34,12 +32,11 @@ namespace Mosviewer.Services
             { "FXH", (time, val) => val * 3.6M }
         };
 
-        private readonly HttpClient _httpClient;
-        private readonly ILogger<MosDownloadService> _logger;
+        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly ILogger<Worker> _logger;
 
-        public MosDownloadService(IHttpClientFactory clientFactory, ILogger<MosDownloadService> logger)
+        public Worker(ILogger<Worker> logger)
         {
-            _httpClient = clientFactory.CreateClient();
             _logger = logger;
         }
 
@@ -70,7 +67,7 @@ namespace Mosviewer.Services
             }
             if (result.Count == 0)
             {
-                throw new ApplicationException($"{_url} enth√§lt keine Dateien.");
+                throw new ApplicationException($"{_url} enth‰lt keine Dateien.");
             }
             return result;
         }
@@ -251,7 +248,7 @@ namespace Mosviewer.Services
 
         }
 
-        public async Task WatchFile(CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             TimeSpan delay = TimeSpan.FromMinutes(1);
             DateTime nextDownload = DateTime.MinValue;
@@ -267,7 +264,7 @@ namespace Mosviewer.Services
                 {
                     if (nextDownload < DateTime.UtcNow)
                     {
-                        _logger.LogInformation($"Pr√ºfe {_url} auf neue Dateien.");
+                        _logger.LogInformation($"Pr¸fe {_url} auf neue Dateien.");
                         var latestFile = await GetLatestFile(cancellationToken);
                         if (lastFileDate < latestFile.FileChanged)
                         {
@@ -276,7 +273,7 @@ namespace Mosviewer.Services
                             await ReadFileAsync(latestFile, cancellationToken);
                             lastFileDate = latestFile.FileChanged;
                             nextDownload = new DateTime((lastFileDate.Ticks / TimeSpan.TicksPerHour + 1) * TimeSpan.TicksPerHour, DateTimeKind.Utc);
-                            _logger.LogInformation($"Daten in {(DateTime.UtcNow - start).TotalSeconds:0.0} Sekunden gelesen. N√§chster Download um {nextDownload:HH:mm} UTC.");
+                            _logger.LogInformation($"Daten in {(DateTime.UtcNow - start).TotalSeconds:0.0} Sekunden gelesen. N‰chster Download um {nextDownload:HH:mm} UTC.");
                         }
 
                     }
@@ -290,17 +287,6 @@ namespace Mosviewer.Services
                 }
                 await Task.Delay(delay, cancellationToken);
             }
-        }
-
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            _ = WatchFile(cancellationToken);
-            return Task.CompletedTask;
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
     }
 }

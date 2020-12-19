@@ -26,8 +26,6 @@ namespace Mosviewer
         {
             services.AddTransient<Services.MosService>();
             services.AddTransient<Infrastructure.MosRepository>();
-            services.AddHttpClient();
-            services.AddHostedService<MosDownloadService>();
 
             services.AddResponseCompression();
 

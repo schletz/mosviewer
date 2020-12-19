@@ -1,4 +1,7 @@
 @echo off
+rd /S /Q mosdata
+del Release.7z
+
 echo . > dirs.txt
 dir /a:d /s /b >> dirs.txt
 REM Löscht alle temporären Visual Studio Dateien

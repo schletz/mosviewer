@@ -202,7 +202,7 @@
         //// NIEDERSCHLAG
         //// *************************************************************************************
         Highcharts.chart('ndsDiagram', {
-            title: { text: "1h Niederschlag, Bewölkung, 6h NDS Wahr. und sign. Wetter", align: "left", margin: 0, x: 100 },
+            title: { text: "3h Niederschlag, Bewölkung und sign. Wetter", align: "left", margin: 0, x: 75 },
             xAxis: {
                 type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
                 min: minDate, max: maxDate,
@@ -229,7 +229,7 @@
             series: [
                 {
                     name: 'Niederschlag',
-                    data: data["RR1C"].Values,
+                    data: data["RR3C"].Values,
                     type: "column",
                     color: "#0000cc",
                     yAxis: "prec",
@@ -237,19 +237,19 @@
                     zIndex: 3,
                     pointPadding: 0,
                 },
-                {
-                    name: '6h NDS Wahr.',
-                    type: 'line',
-                    marker: { enabled: false },
-                    lineWidth: 1,
-                    enableMouseTracking: false,
-                    data: data["R602"].Values,
-                    tooltip: { valueSuffix: '%', valueDecimals: 0 },
-                    color: "#0000cc",
-                    yAxis: "percent",
-                    zIndex: 5,
-                    states: { hover: { lineWidthPlus: 0 } }
-                },
+                //{
+                //    name: '6h NDS Wahr.',
+                //    type: 'line',
+                //    marker: { enabled: false },
+                //    lineWidth: 1,
+                //    enableMouseTracking: false,
+                //    data: data["R650"].Values,
+                //    tooltip: { valueSuffix: '%', valueDecimals: 0 },
+                //    color: "#0000cc",
+                //    yAxis: "percent",
+                //    zIndex: 5,
+                //    states: { hover: { lineWidthPlus: 0 } }
+                //},
                 {
                     name: 'Schnee',
                     data: data["RRS1C"].Values,
@@ -304,7 +304,7 @@
         //// WIND
         //// *************************************************************************************
         Highcharts.chart('windDiagram', {
-            title: { text: "10m Windböen und Böenwahrsch. für 45 (gelb), 75 (or.) und 100 (rot) km/h", align: "left", margin: 0, x: 100 },
+            title: { text: "10m Windböen und Böenwahrsch. für 45 (gelb), 75 (or.) und 100 (rot) km/h", align: "left", margin: 0, x: 75 },
             chart: { alignTicks: true },
             xAxis: {
                 type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,

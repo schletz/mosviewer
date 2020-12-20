@@ -9,4 +9,6 @@ dotnet publish -c Release -o ..\Release\Service -p:PublishReadyToRun=true -p:Pub
 cd ..
 del Release.7z
 "C:\Program Files\7-Zip\7z.exe" a -mx=9 Release.7z Release
+
+rd /S /Q Release
 syncGit.cmd

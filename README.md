@@ -6,6 +6,8 @@ in Diagrammen bereit.
 
 ## Starten des Programmes
 
+> Hinweis: Die Applikation benötigt .NET Core 5 als Laufzeitumgebung.
+
 **(1)** Das Background Service prüft nach jeder vollen Stunde minütlich, ob neue Daten vorliegen.
 Wurde eine neue Datei bereitgestellt, wird diese geparst und in Binärdateien (1 pro Station) abgelegt,
 

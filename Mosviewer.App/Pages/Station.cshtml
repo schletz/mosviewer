@@ -168,6 +168,17 @@
                     states: { hover: { lineWidthPlus: 0 } }
                 },
                 {
+                    name: 'Tagesmittel',
+                    type: 'line',
+                    data: data["TAVG"].Values,
+                    tooltip: { valueSuffix: '°C', valueDecimals: 1 },
+                    color: "#808080",
+                    yAxis: "temp",
+                    linecap: "square", // Bugfix, da die Linie manchmal als Fläche gefüllt wird.
+                    zIndex: 20,
+                    enableMouseTracking: false
+                },
+                {
                     name: 'Tmax',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },

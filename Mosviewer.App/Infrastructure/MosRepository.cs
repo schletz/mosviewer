@@ -1,4 +1,5 @@
 ﻿using Mosviewer.Domain;
+using Mosviewer.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,8 +33,23 @@ namespace Mosviewer.Infrastructure
         public List<Station> GetAllStations() =>
             ReadStationFile().ToList();
 
-        public List<StationValue> GetStationValues(string id) =>
-            ReadStationValueFile(id).ToList();
+        public List<StationValue> GetStationValues(string id)
+        {
+            var data = ReadStationValueFile(id).ToList();
+
+            var temp = data.Where(v => v.Parameter == "TTT");
+            var tavgValues = temp.Select(v => v.Value).MovingAverage(240, 24);
+            int i = 0;
+            var tavg = temp
+                .Select(v => new StationValue
+                {
+                    ForecastDate = v.ForecastDate,
+                    Parameter = "TAVG",
+                    StationId = v.StationId,
+                    Value = tavgValues[i++]
+                });
+            return data.Concat(tavg).ToList();
+        }
 
         private IEnumerable<Station> ReadStationFile()
         {
@@ -43,19 +59,11 @@ namespace Mosviewer.Infrastructure
             using var reader = new BinaryReader(File.Open(
                 filename,
                 FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
-            bool endOfStream = false;
-            while (!endOfStream)
+            long length = reader.BaseStream.Length;
+
+            while (reader.BaseStream.Position != length)
             {
-                Station? station = null;
-                try
-                {
-                    station = Station.Deserialize(reader);
-                }
-                catch (EndOfStreamException)
-                {
-                    endOfStream = true;
-                }
-                if (station != null) { yield return station; }
+                yield return Station.Deserialize(reader);
             }
         }
 
@@ -67,19 +75,11 @@ namespace Mosviewer.Infrastructure
             using var reader = new BinaryReader(File.Open(
                 filename,
                 FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
-            bool endOfStream = false;
-            while (!endOfStream)
+            long length = reader.BaseStream.Length;
+
+            while (reader.BaseStream.Position != length)
             {
-                StationValue? stationValue = null;
-                try
-                {
-                    stationValue = StationValue.Deserialize(reader);
-                }
-                catch (EndOfStreamException)
-                {
-                    endOfStream = true;
-                }
-                if (stationValue != null) { yield return stationValue; }
+                yield return StationValue.Deserialize(reader);
             }
         }
     }

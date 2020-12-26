@@ -51,9 +51,8 @@ namespace Mosviewer.Services
             var values = _repo.GetStationValues(stationId);
             if (values == null) { return null; }
 
-            var tAvg = values.Where(v => v.Parameter == "TTT").MovingAverage("TAVG");
 
-            return values.Concat(tAvg)
+            return values
                 .GroupBy(v => v.Parameter)
                 .Select(g => new Forecast
                 {

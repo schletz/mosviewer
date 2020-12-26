@@ -8,37 +8,37 @@ namespace Mosviewer.Extensions
 {
     public static class IEnumerableExtensions
     {
-        public static StationValue[] MovingAverage(this IEnumerable<StationValue> data, string paramName, int windowSize = 24)
+        public static decimal?[] MovingAverage(this IEnumerable<decimal?> values, int count, int windowSize)
         {
-            var values = new Span<decimal?>(data.Select(s => s.Value).ToArray());
-            var result = new StationValue[values.Length];
-            int halfWindow = windowSize / 2;
-            int maxIndex = values.Length - halfWindow;
-            int i = 0;
+            var result = new decimal?[count];
+            var buffer = new decimal?[windowSize];
 
-            foreach (var s in data)
+            using IEnumerator<decimal?> enumerator = values.GetEnumerator();
+            for (int i = 0; i < windowSize - 1; i++)
             {
-                result[i] = new StationValue
+                if (!enumerator.MoveNext())
                 {
-                    ForecastDate = s.ForecastDate,
-                    Parameter = paramName,
-                    StationId = s.StationId,
-                    Value = (i >= halfWindow && i <= maxIndex) ? values.Slice(i - halfWindow, windowSize).Average() : null
-                };
-                i++;
+                    return Array.Empty<decimal?>();
+                }
+                buffer[i] = enumerator.Current;
+            }
+            for (int i = windowSize - 1, j = windowSize / 2; enumerator.MoveNext(); i++, j++)
+            {
+                buffer[i % 24] = enumerator.Current;
+                result[j] = buffer.Average();
             }
             return result;
         }
 
-        public static decimal? Average(this Span<decimal?> data)
-        {
-            int count = 0;
-            decimal sum = 0;
-            foreach (var x in data)
-            {
-                if (x.HasValue) { count++; sum += x.Value; }
-            }
-            return count > 0 ? sum / count : null;
-        }
+        //public static decimal? Average(this Span<decimal?> data)
+        //{
+        //    int count = 0;
+        //    decimal sum = 0;
+        //    foreach (var x in data)
+        //    {
+        //        if (x.HasValue) { count++; sum += x.Value; }
+        //    }
+        //    return count > 0 ? sum / count : null;
+        //}
     }
 }

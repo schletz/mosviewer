@@ -8,26 +8,44 @@ namespace Mosviewer.Extensions
 {
     public static class IEnumerableExtensions
     {
-        public static decimal?[] MovingAverage(this IEnumerable<decimal?> values, int count, int windowSize)
+        /// <summary>
+        /// Berechnet das gleitende Mittel aus einem Array von Werten.
+        /// </summary>
+        /// <returns>Enumerator mit der gleien Anzahl von Elementen wie values.</returns>
+        public static IEnumerable<decimal?> MovingAverage<TSource>(
+            this IEnumerable<TSource> values,
+            Func<TSource, decimal?> selector,
+            int windowSize)
         {
-            var result = new decimal?[count];
             var buffer = new decimal?[windowSize];
+            int halfWindow = windowSize / 2;
+            int i = 0;
 
-            using IEnumerator<decimal?> enumerator = values.GetEnumerator();
-            for (int i = 0; i < windowSize - 1; i++)
+            using IEnumerator<TSource> enumerator = values.GetEnumerator();
+            for (; i < halfWindow - 1; i++)
             {
                 if (!enumerator.MoveNext())
                 {
-                    return Array.Empty<decimal?>();
+                    yield break;
                 }
-                buffer[i] = enumerator.Current;
+                buffer[i] = selector(enumerator.Current);
             }
-            for (int i = windowSize - 1, j = windowSize / 2; enumerator.MoveNext(); i++, j++)
+            for (; i < windowSize - 1; i++)
             {
-                buffer[i % 24] = enumerator.Current;
-                result[j] = buffer.Average();
+                if (!enumerator.MoveNext())
+                {
+                    yield break;
+                }
+                buffer[i] = selector(enumerator.Current);
+                yield return default;
             }
-            return result;
+            while (enumerator.MoveNext())
+            {
+                buffer[i++ % 24] = selector(enumerator.Current);
+                yield return buffer.Average();
+            }
+            for (int j = halfWindow - 1; j > 0; j--)
+                yield return default;
         }
 
         //public static decimal? Average(this Span<decimal?> data)

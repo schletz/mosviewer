@@ -2,6 +2,7 @@
 using Mosviewer.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -38,15 +39,19 @@ namespace Mosviewer.Infrastructure
             var data = ReadStationValueFile(id).ToList();
 
             var temp = data.Where(v => v.Parameter == "TTT");
-            var tavgValues = temp.Select(v => v.Value).MovingAverage(240, 24);
-            int i = 0;
+            Debug.Assert(temp.MovingAverage(v => v.Value, 24).Count() == temp.Count());
+            using var tavgValues = temp.MovingAverage(v => v.Value, 24).GetEnumerator();
             var tavg = temp
-                .Select(v => new StationValue
+                .Select(v =>
                 {
-                    ForecastDate = v.ForecastDate,
-                    Parameter = "TAVG",
-                    StationId = v.StationId,
-                    Value = tavgValues[i++]
+                    tavgValues.MoveNext();
+                    return new StationValue
+                    {
+                        ForecastDate = v.ForecastDate,
+                        Parameter = "TAVG",
+                        StationId = v.StationId,
+                        Value = tavgValues.Current
+                    };
                 });
             return data.Concat(tavg).ToList();
         }

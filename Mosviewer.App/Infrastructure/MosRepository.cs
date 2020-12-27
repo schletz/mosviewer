@@ -34,7 +34,7 @@ namespace Mosviewer.Infrastructure
         public List<Station> GetAllStations() =>
             ReadStationFile().ToList();
 
-        public List<StationValue> GetStationValues(string id)
+        public List<StationValue> GetStationValues(string id, decimal lng)
         {
             var data = ReadStationValueFile(id).ToList();
 
@@ -53,7 +53,40 @@ namespace Mosviewer.Infrastructure
                         Value = tavgValues.Current
                     };
                 });
-            return data.Concat(tavg).ToList();
+
+            // Ermittelt die Maximaltemperaturen des lokalen Tages (Zeitzone).
+            // Es werden nur die Maximaltemperaturen, die nach 12:00 Lokalzeit auftreten, verwendet.
+            var tmaxLocal = data.Where(v => v.Parameter == "TX" && v.Value.HasValue && v.ForecastDate.Hour >= 12 - lng / 15)
+                .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
+                .Select(g =>
+                {
+                    var max = g.OrderByDescending(v => v.Value).First();
+                    return new StationValue
+                    {
+                        ForecastDate = max.ForecastDate,
+                        Parameter = "TXLOCAL",
+                        StationId = max.StationId,
+                        Value = max.Value
+                    };
+                });
+
+            // Ermittelt die Minimaltemperaturen des lokalen Tages (Zeitzone).
+            // Es werden nur die Minimaltemperaturen, die bis 12:00 Lokalzeit auftreten, verwendet.
+            var tminLocal = data.Where(v => v.Parameter == "TN" && v.Value.HasValue && v.ForecastDate.Hour < 12 - lng / 15)
+                .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
+                .Select(g =>
+                {
+                    var min = g.OrderBy(v => v.Value).First();
+                    return new StationValue
+                    {
+                        ForecastDate = min.ForecastDate,
+                        Parameter = "TNLOCAL",
+                        StationId = min.StationId,
+                        Value = min.Value
+                    };
+                });
+
+            return data.Concat(tavg).Concat(tmaxLocal).Concat(tminLocal).ToList();
         }
 
         private IEnumerable<Station> ReadStationFile()

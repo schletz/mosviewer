@@ -34,7 +34,7 @@ namespace Mosviewer.Pages
             Station = station;
             ViewData["Title"] = $"{station.Id} {station.Name}";
 
-            var forecasts = _service.GetForecast(id);
+            var forecasts = _service.GetForecast(id, station.Lng);
             if (forecasts == null)
             {
                 Message = $"Die Station {id} wurde nicht gefunden.";

@@ -46,9 +46,9 @@ namespace Mosviewer.Services
             (double)s.Lng >= lng - distance / kmPerLng && (double)s.Lng <= lng + distance / kmPerLng);
         }
 
-        public Dictionary<string, Forecast>? GetForecast(string stationId)
+        public Dictionary<string, Forecast>? GetForecast(string stationId, decimal lng)
         {
-            var values = _repo.GetStationValues(stationId);
+            var values = _repo.GetStationValues(stationId, lng);
             if (values == null) { return null; }
 
 

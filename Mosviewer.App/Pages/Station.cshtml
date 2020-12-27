@@ -182,10 +182,7 @@
                     name: 'Tmax',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },
-                    data: data["TX"].Values.filter(v => {
-                        const hour = v[0] / 3600000;
-                        return (station.Lng < 0 || station.Lng > 90 || hour % 24 == 18);
-                    }),
+                    data: data["TXLOCAL"].Values,
                     enableMouseTracking: false,
                     color: "#920000",
                     dataLabels: { enabled: true, format: '{point.y:.0f}' },
@@ -196,10 +193,7 @@
                     name: 'Tmin',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },
-                    data: data["TN"].Values.filter(v => {
-                        const hour = v[0] / 3600000;
-                        return (station.Lng < 0 || station.Lng > 90 || hour % 24 == 6)
-                    }),
+                    data: data["TNLOCAL"].Values,
                     enableMouseTracking: false,
                     color: "#001ed6",
                     dataLabels: { enabled: true, format: '{point.y:.0f}' },

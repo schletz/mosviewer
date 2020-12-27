@@ -13,4 +13,8 @@
 	  <ProjectReference Include="..\Mosviewer.Domain\Mosviewer.Domain.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Controllers\" />
+	</ItemGroup>
+
 </Project>

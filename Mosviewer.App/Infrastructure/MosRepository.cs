@@ -56,7 +56,7 @@ namespace Mosviewer.Infrastructure
 
             // Ermittelt die Maximaltemperaturen des lokalen Tages (Zeitzone).
             // Es werden nur die Maximaltemperaturen, die nach 12:00 Lokalzeit auftreten, verwendet.
-            var tmaxLocal = data.Where(v => v.Parameter == "TX" && v.Value.HasValue && v.ForecastDate.Hour >= 12 - lng / 15)
+            var tmaxLocal = data.Where(v => v.Parameter == "TX" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour >= 12)
                 .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
                 .Select(g =>
                 {
@@ -72,7 +72,7 @@ namespace Mosviewer.Infrastructure
 
             // Ermittelt die Minimaltemperaturen des lokalen Tages (Zeitzone).
             // Es werden nur die Minimaltemperaturen, die bis 12:00 Lokalzeit auftreten, verwendet.
-            var tminLocal = data.Where(v => v.Parameter == "TN" && v.Value.HasValue && v.ForecastDate.Hour < 12 - lng / 15)
+            var tminLocal = data.Where(v => v.Parameter == "TN" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour < 12)
                 .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
                 .Select(g =>
                 {

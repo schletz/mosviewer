@@ -198,16 +198,12 @@ namespace Mosviewer.Service
                     {
                         if (reader.Name == "dwd:Forecast")
                         {
-                            curentElementName = null;
-                            try
+                            curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper();
+                            if (curentElementName != null)
                             {
-                                curentElementName = reader.GetAttribute("dwd:elementName")?.ToUpper()
-                                    ?? throw new Exception();
-                                converter = _valueConverters[curentElementName];
-                            }
-                            catch
-                            {
-                                converter = (time, val) => val;
+                                converter = _valueConverters.TryGetValue(curentElementName, out var c)
+                                ? c
+                                : (time, val) => val;
                             }
                         }
                         if (reader.Name == "dwd:value" && curentElementName != null)

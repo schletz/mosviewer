@@ -207,7 +207,7 @@
         //// NIEDERSCHLAG
         //// *************************************************************************************
         Highcharts.chart('ndsDiagram', {
-            title: { text: "3h Niederschlag, Bewölkung und sign. Wetter", align: "left", margin: 0, x: 75 },
+            title: { text: "3h Niederschlag, Bewölkung, Nebel und sign. Wetter", align: "left", margin: 0, x: 75 },
             xAxis: {
                 type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
                 min: minDate, max: maxDate,
@@ -284,6 +284,16 @@
                     enableMouseTracking: false,
                     pointPadding: 0,
                     zIndex: 2,
+                },
+                {
+                    name: 'Nebel',
+                    type: 'column',
+                    data: data["WWM"].Values,
+                    color: "#000000",
+                    yAxis: "percent",
+                    enableMouseTracking: false,
+                    pointPadding: 0,
+                    zIndex: 3,
                 },
                 {
                     name: 'Sig. Weather',

@@ -36,27 +36,17 @@ namespace Mosviewer.Infrastructure
 
         public List<StationValue> GetStationValues(string id, decimal lng)
         {
-            var data = ReadStationValueFile(id).ToList();
+            var data = new List<StationValue>(10000);
+            data.AddRange(ReadStationValueFile(id));
 
-            var temp = data.Where(v => v.Parameter == "TTT");
-            Debug.Assert(temp.MovingAverage(v => v.Value, 24).Count() == temp.Count());
-            using var tavgValues = temp.MovingAverage(v => v.Value, 24).GetEnumerator();
-            var tavg = temp
-                .Select(v =>
-                {
-                    tavgValues.MoveNext();
-                    return new StationValue
-                    {
-                        ForecastDate = v.ForecastDate,
-                        Parameter = "TAVG",
-                        StationId = v.StationId,
-                        Value = tavgValues.Current
-                    };
-                });
+            data.AddRange(data
+                .Where(v => v.Parameter == "TTT")
+                .MovingAverage(24)
+                .ToList());
 
             // Ermittelt die Maximaltemperaturen des lokalen Tages (Zeitzone).
             // Es werden nur die Maximaltemperaturen, die nach 12:00 Lokalzeit auftreten, verwendet.
-            var tmaxLocal = data.Where(v => v.Parameter == "TX" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour >= 12)
+            data.AddRange(data.Where(v => v.Parameter == "TX" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour >= 12)
                 .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
                 .Select(g =>
                 {
@@ -68,11 +58,12 @@ namespace Mosviewer.Infrastructure
                         StationId = max.StationId,
                         Value = max.Value
                     };
-                });
+                })
+                .ToList());
 
             // Ermittelt die Minimaltemperaturen des lokalen Tages (Zeitzone).
             // Es werden nur die Minimaltemperaturen, die bis 12:00 Lokalzeit auftreten, verwendet.
-            var tminLocal = data.Where(v => v.Parameter == "TN" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour < 12)
+            data.AddRange(data.Where(v => v.Parameter == "TN" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour < 12)
                 .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
                 .Select(g =>
                 {
@@ -84,9 +75,10 @@ namespace Mosviewer.Infrastructure
                         StationId = min.StationId,
                         Value = min.Value
                     };
-                });
+                })
+                .ToList());
 
-            return data.Concat(tavg).Concat(tmaxLocal).Concat(tminLocal).ToList();
+            return data;
         }
 
         private IEnumerable<Station> ReadStationFile()

@@ -6,46 +6,36 @@ using System.Threading.Tasks;
 
 namespace Mosviewer.Extensions
 {
-    public static class IEnumerableExtensions
+    public static class StationStatisticsExtensions
     {
         /// <summary>
         /// Berechnet das gleitende Mittel aus einem Array von Werten.
         /// </summary>
         /// <returns>Enumerator mit der gleien Anzahl von Elementen wie values.</returns>
-        public static IEnumerable<decimal?> MovingAverage<TSource>(
-            this IEnumerable<TSource> values,
-            Func<TSource, decimal?> selector,
+        public static IEnumerable<StationValue> MovingAverage(
+            this IEnumerable<StationValue> values,
             int windowSize)
         {
-            var buffer = new decimal?[windowSize];
-            int halfWindow = windowSize / 2;
-            int i = 0;
+            var buffer = new StationValue[windowSize];
+            using var enumerator = values.GetEnumerator();
+            int i, j;
 
-            using IEnumerator<TSource> enumerator = values.GetEnumerator();
-            for (; i < halfWindow - 1; i++)
+            for (i = 0; i < windowSize - 1 && enumerator.MoveNext(); i++)
             {
-                if (!enumerator.MoveNext())
+                buffer[i] = enumerator.Current;
+            }
+            for (j = windowSize / 2; enumerator.MoveNext(); i = (i + 1) % 24, j = (j + 1) % 24)
+            {
+                buffer[i] = enumerator.Current;
+
+                yield return new StationValue
                 {
-                    yield break;
-                }
-                buffer[i] = selector(enumerator.Current);
+                    ForecastDate = buffer[j].ForecastDate,
+                    Parameter = "TAVG",
+                    StationId = buffer[j].StationId,
+                    Value = buffer.Average(s => s.Value)
+                };
             }
-            for (; i < windowSize - 1; i++)
-            {
-                if (!enumerator.MoveNext())
-                {
-                    yield break;
-                }
-                buffer[i] = selector(enumerator.Current);
-                yield return default;
-            }
-            while (enumerator.MoveNext())
-            {
-                buffer[i++ % 24] = selector(enumerator.Current);
-                yield return buffer.Average();
-            }
-            for (int j = halfWindow - 1; j > 0; j--)
-                yield return default;
         }
 
         //public static decimal? Average(this Span<decimal?> data)

@@ -44,40 +44,10 @@ namespace Mosviewer.Infrastructure
                 .MovingAverage(24)
                 .ToList());
 
-            // Ermittelt die Maximaltemperaturen des lokalen Tages (Zeitzone).
+            // Ermittelt die Maximal- und Minimaltemperaturentemperaturen des lokalen Tages (Zeitzone).
             // Es werden nur die Maximaltemperaturen, die nach 12:00 Lokalzeit auftreten, verwendet.
-            data.AddRange(data.Where(v => v.Parameter == "TX" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour >= 12)
-                .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
-                .Select(g =>
-                {
-                    var max = g.OrderByDescending(v => v.Value).First();
-                    return new StationValue
-                    {
-                        ForecastDate = max.ForecastDate,
-                        Parameter = "TXLOCAL",
-                        StationId = max.StationId,
-                        Value = max.Value
-                    };
-                })
-                .ToList());
-
-            // Ermittelt die Minimaltemperaturen des lokalen Tages (Zeitzone).
-            // Es werden nur die Minimaltemperaturen, die bis 12:00 Lokalzeit auftreten, verwendet.
-            data.AddRange(data.Where(v => v.Parameter == "TN" && v.Value.HasValue && v.ForecastDate.AddHours((double)lng / 15).Hour < 12)
-                .GroupBy(v => v.ForecastDate.AddHours((double)lng / 15).Date)
-                .Select(g =>
-                {
-                    var min = g.OrderBy(v => v.Value).First();
-                    return new StationValue
-                    {
-                        ForecastDate = min.ForecastDate,
-                        Parameter = "TNLOCAL",
-                        StationId = min.StationId,
-                        Value = min.Value
-                    };
-                })
-                .ToList());
-
+            // Es werden nur die Minumaltemperaturen, die vor 12:00 Lokalzeit auftreten, verwendet.
+            data.AddRange(data.GetLocalMaxMin(lng).ToList());
             return data;
         }
 

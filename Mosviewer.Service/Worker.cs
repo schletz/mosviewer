@@ -77,10 +77,10 @@ namespace Mosviewer.Service
 
         public async Task ReadFileAsync(MosFile file, CancellationToken cancellationToken)
         {
-            var modelinfo = new Modelinfo();
-            var taskList = new List<Task>();
-            var station = new Station();
+            var taskList = new List<Task>(6000);
             var stations = new List<Station>(6000);
+            var modelinfo = new Modelinfo();
+            var station = new Station();
 
             using var zipStream = await (await _httpClient.GetAsync(file.Link, cancellationToken))
                 .EnsureSuccessStatusCode()
@@ -186,7 +186,7 @@ namespace Mosviewer.Service
                 try
                 {
                     var filename = Path.Combine(_directory, stationId + ".dat");
-                    var stationValues = new List<StationValue>(9600);
+                    //var stationValues = new List<StationValue>(9600);
                     string? curentElementName = null!;
                     Func<DateTime, decimal, decimal?> converter = null!;
                     StationValue stationValue = new StationValue() { StationId = stationId };

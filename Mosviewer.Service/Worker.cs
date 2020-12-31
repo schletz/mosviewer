@@ -189,6 +189,7 @@ namespace Mosviewer.Service
                     var stationValues = new List<StationValue>(9600);
                     string? curentElementName = null!;
                     Func<DateTime, decimal, decimal?> converter = null!;
+                    StationValue stationValue = new StationValue() { StationId = stationId };
 
                     using var xmlStreamReader = new StringReader(xmlStr);
                     using var reader = XmlReader.Create(xmlStreamReader);
@@ -204,6 +205,7 @@ namespace Mosviewer.Service
                                 converter = _valueConverters.TryGetValue(curentElementName, out var c)
                                 ? c
                                 : (time, val) => val;
+                                stationValue.Parameter = curentElementName;
                             }
                         }
                         if (reader.Name == "dwd:value" && curentElementName != null)
@@ -216,19 +218,12 @@ namespace Mosviewer.Service
                                 int len = end != -1 ? end : data.Length;
                                 DateTime time = timeSteps[valCount++];
 
-                                decimal? value = decimal.TryParse(data.Slice(0, len),
+                                stationValue.Value = decimal.TryParse(data.Slice(0, len),
                                     System.Globalization.NumberStyles.Any,
                                     System.Globalization.CultureInfo.InvariantCulture,
                                     out decimal v) ? converter(time, v) : null;
-                                var stationValue = new StationValue
-                                {
-                                    StationId = stationId,
-                                    Parameter = curentElementName,
-                                    ForecastDate = time,
-                                    Value = value
-                                };
+                                stationValue.ForecastDate = time;
                                 stationValue.Serialize(stationValuesWriter);
-
                                 data = data[len..].TrimStart();
                             }
                         }

@@ -12,8 +12,6 @@ namespace Mosviewer.Domain
         public decimal Lng { get; set; }
         public decimal Elevation { get; set; }
         public string HtmlLabel => $"{Id} - {Name} ({Elevation:0}&thinsp;m)";
-        [JsonIgnore]
-        public List<StationValue> Values { get; set; } = new();
         public void Serialize(BinaryWriter writer)
         {
             writer.Write(Id);

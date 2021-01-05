@@ -49,6 +49,7 @@
     const modelinfo = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Modelinfo))');
     const minDate = Date.parse(modelinfo.TimeSteps[0]);
     const maxDate = Date.parse(modelinfo.TimeSteps[modelinfo.TimeSteps.length - 1]);
+
     const sigWeather = {
         // https://www.nodc.noaa.gov/archive/arc0021/0000907/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
         "0": { desc: "clear sky", color: "#ffffff" },
@@ -182,7 +183,7 @@
                     name: 'Tmax',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },
-                    data: data["TXLOCAL"] !== undefined ? data["TXLOCAL"].Values : data["TX"],
+                    data: data["TXLOCAL"] !== undefined ? data["TXLOCAL"].Values : data["TX"].Values,
                     enableMouseTracking: false,
                     color: "#920000",
                     dataLabels: { enabled: true, format: '{point.y:.0f}' },
@@ -193,7 +194,7 @@
                     name: 'Tmin',
                     lineWidth: 0,
                     marker: { enabled: true, radius: 3, symbol: "circle" },
-                    data: data["TNLOCAL"] !== undefined ? data["TNLOCAL"].Values : data["TN"],
+                    data: data["TNLOCAL"] !== undefined ? data["TNLOCAL"].Values : data["TN"].Values,
                     enableMouseTracking: false,
                     color: "#001ed6",
                     dataLabels: { enabled: true, format: '{point.y:.0f}' },

@@ -186,7 +186,6 @@ namespace Mosviewer.Service
                 try
                 {
                     var filename = Path.Combine(_directory, stationId + ".dat");
-                    //var stationValues = new List<StationValue>(9600);
                     string? curentElementName = null!;
                     Func<DateTime, decimal, decimal?> converter = null!;
                     StationValue stationValue = new StationValue() { StationId = stationId };

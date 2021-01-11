@@ -13,6 +13,7 @@
 *.db
 *.7z
 
+appsettings.json
 mosdata/
 
 # User-specific files (MonoDevelop/Xamarin Studio)

@@ -60,6 +60,20 @@ namespace Mosviewer
                 endpoints.MapControllers();
                 endpoints.MapRazorPages();
             });
+
+            // https://blog.elmah.io/the-asp-net-core-security-headers-guide/
+            app.Use(async (context, next) =>
+            {
+                context.Response.Headers.Add("X-Frame-Options", "DENY");
+                context.Response.Headers.Add("X-Xss-Protection", "1; mode=block");
+                context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+                context.Response.Headers.Add("Referrer-Policy", "no-referrer");
+                context.Response.Headers.Add("X-Permitted-Cross-Domain-Policies", "none");
+                context.Response.Headers.Add("Feature-Policy", "accelerometer 'none'; camera 'none'; geolocation 'none'; gyroscope 'none'; magnetometer 'none'; microphone 'none'; payment 'none'; usb 'none'");
+                context.Response.Headers.Add("Content-Security-Policy", "default-src 'self'");
+                await next();
+            });
+
         }
     }
 }

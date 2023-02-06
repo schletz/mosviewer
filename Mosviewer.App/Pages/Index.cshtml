@@ -1,0 +1,40 @@
+﻿@page
+@model IndexModel
+@section Head
+{
+    <style type="text/css">
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    <link rel="stylesheet" href="~/css/leaflet.css" />
+    <script src="~/js/leaflet.js"></script>
+}
+
+<div id="map"></div>
+
+<script type="text/javascript">
+    const stations = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stations))');
+    const map = L.map('map', {
+        center: [47.6, 13.7],
+        zoom: 8
+    });
+    //L.tileLayer('https://api.mapbox.com/v4/mapbox.mapbox-streets-v7,mapbox.92olaqdt,mapbox.mapbox-terrain-v2,mapbox.9tm8dx88,mapbox.4suez6c9,mapbox.akwnx50w,mapbox.8x70v9py,mapbox.b1l3wqbs,mapbox.cc9j0p61,mapbox.d4advw8k/7/70/46.vector.pbf?sku=101z11woHptXN&access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 10 }).addTo(map);
+    stations.forEach(s => {
+        const marker = L
+            .circleMarker([s.Lat, s.Lng], {
+                radius: 10,
+                color: s.Elevation < 1000 ? '#3388ff' : '#000000'
+            })
+            .on("click", (e) => {
+                    //window.location.href = "/Station/" + e.target.stationId;
+                window.open("/Station/" + e.target.stationId, "_blank");
+            })
+            .bindTooltip(s.HtmlLabel)
+            .addTo(map);
+        marker.stationId = s.Id;
+    })
+
+</script>

@@ -1,0 +1,417 @@
+﻿@page "{id}"
+@model Mosviewer.Pages.StationModel
+@section Head
+{
+    <script src="~/js/highcharts.min.js"></script>
+    <style type="text/css">
+        .charts {
+            width: 100%;
+        }
+
+        #legende {
+            margin-left: 100px;
+            margin-top: 10px;
+        }
+    </style>
+}
+
+<div class="container">
+    <h4>MOS MIX Station @Model.Station.Id @Model.Station.Name (Lat: @Model.Station.Lat&thinsp;°, Lng: @Model.Station.Lng&thinsp;°, Elev: @Model.Station.Elevation&thinsp;m)</h4>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <p class="message"><em>@Model.Message</em></p>
+    }
+
+    <div class="charts">
+        <div id="tempDiagram"></div>
+        <div id="ndsDiagram"></div>
+        <img src="~/overview.png" id="legende">
+        <div id="windDiagram"></div>
+    </div>
+    <div class="infos">
+        <p>
+            <small>
+                <em>Modellinformationen:</em><br />
+                @foreach (var m in Model.Modelinfo.ModelReferenceTimes)
+                {
+                    <span>@m.Value: @m.Key</span><br />
+                }
+            </small>
+        </p>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+    const data = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Forecasts))');
+    const station = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Station))');
+    const modelinfo = JSON.parse('@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Modelinfo))');
+    const minDate = Date.parse(modelinfo.TimeSteps[0]);
+    const maxDate = Date.parse(modelinfo.TimeSteps[modelinfo.TimeSteps.length - 1]);
+
+    const sigWeather = {
+        // https://www.nodc.noaa.gov/archive/arc0021/0000907/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
+        "0": { desc: "clear sky", color: "#ffffff" },
+        "1": { desc: "mainly clear", color: "#bfbfbf" },
+        "2": { desc: "partly/generally cloudy", color: "#808080" },
+        "3": { desc: "cloudy/overcast", color: "#000000" },
+        "45": { desc: "Fog or ice fog, sky invisible, no appreciable change during the preceding hour", color: "#fdf733" },
+        "48": { desc: "Fog, depositing rime, sky visible", color: "#c1bc29" },
+        "49": { desc: "Fog, depositing rime, sky invisible", color: "#c1bc29" },
+        "51": { desc: "Drizzle, not freezing, continuous, slight at time of ob.", color: "#c2ff9a" },
+        "53": { desc: "Drizzle, not freezing, continuous, moderate at time of ob.", color: "#c2ff9a" },
+        "55": { desc: "Drizzle, not freezing, continuous, heavy at time of ob.", color: "#c2ff9a" },
+        "56": { desc: "Drizzle, freezing, slight", color: "#ff8181" },
+        "57": { desc: "Drizzle, freezing, moderate or heavy (dense)", color: "#ff8181" },
+        "61": { desc: "Rain, not freezing, continuous, slight at time of ob.", color: "#43ff43" },
+        "63": { desc: "Rain, not freezing, continuous, moderate at time of ob.", color: "#34c134" },
+        "65": { desc: "Rain, not freezing, continuous, heavy at time of ob.", color: "#008200" },
+        "66": { desc: "Rain, freezing, slight", color: "#ff4343" },
+        "67": { desc: "Rain, freezing, moderate or heavy", color: "#c80000" },
+        "68": { desc: "Rain or drizzle and snow, slight", color: "#47f0ff" },
+        "69": { desc: "Rain or drizzle and snow, moderate or heavy", color: "#478cff" },
+        "71": { desc: "Continuous fall of snowflakes, slight at time of ob.", color: "#47f0ff" },
+        "73": { desc: "Continuous fall of snowflakes, moderate at time of ob.", color: "#478cff" },
+        "75": { desc: "Continuous fall of snowflakes, heavy at time of ob.", color: "#3568bd" },
+        "77": { desc: "Snow grains (with or without fog)", color: "#47f0ff" },
+        "80": { desc: "Rain shower(s), slight", color: "#43ff43" },
+        "81": { desc: "Rain shower(s), moderate or heavy", color: "#34c134" },
+        "82": { desc: "Rain shower(s), violent", color: "#008200" },
+        "83": { desc: "Shower(s) of rain and snow mixed, slight", color: "#47f0ff" },
+        "85": { desc: "Snow shower(s), slight", color: "#47f0ff" },
+        "86": { desc: "Snow shower(s), moderate or heavy", color: "#478cff" },
+        "95": { desc: "Thunderstorm, slight or moderate, without hail, but with rain and/or snow at time of observation", color: "#fd5fff" },
+        "96": { desc: "Thunderstorm, slight or moderate, with hail at time of ob.", color: "#ba1abc" },
+        "999": { desc: "Undefined", color: "#ff8000" }
+    };
+
+    Highcharts.setOptions({
+        lang: {
+            shortMonths: ['Jan', 'Feb', 'März', 'Apr', 'Mai', 'Juni', 'Juli', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
+            months: ['Jänner', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+            shortWeekdays: ['SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA'],
+            weekdays: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
+        },
+        chart: {
+            marginLeft: 75,
+            marginRight: 75,
+            spacingRight: 0,
+            spacingLeft: 0,
+            spacingTop: 10,
+            spacingBottom: 0,
+            height: 200,
+            alignTicks: false,
+        },
+        credits: { enabled: false },
+        legend: { enabled: false }
+    });
+
+        // *************************************************************************************
+        // TEMPERATUR
+        // *************************************************************************************
+    Highcharts.chart('tempDiagram', {
+            title: null,
+            xAxis: {
+                type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
+                min: minDate, max: maxDate,
+                minorGridLineColor: "#cccccc", gridLineColor: "#999999", gridLineWidth: 2, minorGridLineWidth: 1,
+                dateTimeLabelFormats: { day: '%a, %e.%m.', hour: '%H h' }
+            },
+            yAxis: [
+                {
+                    id: "temp", labels: { format: '{value}°C' }, title: { text: null },
+                    tickInterval: 2, minorGridLineColor: "#cccccc", gridLineColor: "#999999",
+                    min: Math.min(data["TTT"].MinValue, data["TN"].MinValue) - 2, startOnTick: true,
+                    max: Math.max(data["TTT"].MaxValue, data["TX"].MaxValue), endOnTick: true,
+                    plotLines: [{ value: 0, color: '#000000', width: 2 }]
+                },
+                {
+                    id: "percent", labels: { format: '{value}%' }, title: { text: null }, opposite: true, gridLineWidth: 0,
+                    tickPositions: [0, 25, 50, 75, 100], minorGridLineColor: "#cccccc", gridLineColor: "#999999"
+                }
+            ],
+            series: [
+                {
+                    name: 'Sonnenscheindauer in %',
+                    type: 'column',
+                    data: data["SUND1"].Values,
+                    color: "#ffff00",
+                    yAxis: "percent",
+                    states: { hover: { lineWidthPlus: 0 } },
+                    enableMouseTracking: false,
+                    zIndex: 10,
+                    grouping: false,
+                    borderWidth: 0,
+                    pointPadding: 0
+                },
+                {
+                    name: '2m Temperatur',
+                    type: 'line',
+                    data: data["TTT"].Values,
+                    tooltip: { valueSuffix: '°C', valueDecimals: 1 },
+                    color: "#000000",
+                    yAxis: "temp",
+                    zIndex: 10,
+                    linecap: "square", // Bugfix, da die Linie manchmal als Fläche gefüllt wird.
+                    states: { hover: { lineWidthPlus: 0 } }
+                },
+                {
+                    name: '2m Taupunkt',
+                    type: 'line',
+                    lineWidth: 1,
+                    data: data["TD"].Values,
+                    tooltip: { valueSuffix: '°C', valueDecimals: 1 },
+                    color: "#000000",
+                    yAxis: "temp",
+                    linecap: "square", // Bugfix, da die Linie manchmal als Fläche gefüllt wird.
+                    zIndex: 10,
+                    states: { hover: { lineWidthPlus: 0 } }
+                },
+                {
+                    name: 'Tagesmittel',
+                    type: 'line',
+                    data: data["TAVG"].Values,
+                    tooltip: { valueSuffix: '°C', valueDecimals: 1 },
+                    color: "#808080",
+                    yAxis: "temp",
+                    linecap: "square", // Bugfix, da die Linie manchmal als Fläche gefüllt wird.
+                    zIndex: 20,
+                    enableMouseTracking: false
+                },
+                {
+                    name: 'Tmax',
+                    lineWidth: 0,
+                    marker: { enabled: true, radius: 3, symbol: "circle" },
+                    data: data["TXLOCAL"] !== undefined ? data["TXLOCAL"].Values : data["TX"].Values,
+                    enableMouseTracking: false,
+                    color: "#920000",
+                    dataLabels: { enabled: true, format: '{point.y:.0f}' },
+                    yAxis: "temp",
+                    zIndex: 20,
+                },
+                {
+                    name: 'Tmin',
+                    lineWidth: 0,
+                    marker: { enabled: true, radius: 3, symbol: "circle" },
+                    data: data["TNLOCAL"] !== undefined ? data["TNLOCAL"].Values : data["TN"].Values,
+                    enableMouseTracking: false,
+                    color: "#001ed6",
+                    dataLabels: { enabled: true, format: '{point.y:.0f}' },
+                    yAxis: "temp",
+                    zIndex: 20,
+                }
+            ]
+        });
+
+        //// *************************************************************************************
+        //// NIEDERSCHLAG
+        //// *************************************************************************************
+        Highcharts.chart('ndsDiagram', {
+            title: { text: "3h Niederschlag, Bewölkung, Nebel und sign. Wetter", align: "left", margin: 0, x: 75 },
+            xAxis: {
+                type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
+                min: minDate, max: maxDate,
+                minorGridLineColor: "#cccccc", gridLineColor: "#999999", gridLineWidth: 2, minorGridLineWidth: 1,
+                dateTimeLabelFormats: { day: '%a, %e.%m.', hour: '%H h' }
+            },
+            yAxis: [
+                {
+                    id: "prec", labels: { format: '{value}mm' }, title: { text: null },
+                    softMax: 8, min: 0, tickInterval: 2, minorGridLineColor: "#cccccc", gridLineColor: "#999999"
+                },
+                {
+                    id: "percent", labels: { format: '{value}%' }, title: { text: null }, opposite: true, gridLineWidth: 0,
+                    tickPositions: [0, 25, 50, 75, 100], minorGridLineColor: "#cccccc", gridLineColor: "#999999"
+                }
+            ],
+            plotOptions: {
+                column: {
+                    grouping: false,
+                    shadow: false,
+                    borderWidth: 0
+                }
+            },
+            series: [
+                {
+                    name: 'Niederschlag',
+                    data: data["RR3C"].Values,
+                    type: "column",
+                    color: "#0000cc",
+                    yAxis: "prec",
+                    tooltip: { valueSuffix: 'mm', valueDecimals: 1 },
+                    zIndex: 4,
+                    pointPadding: 0,
+                },
+                //{
+                //    name: '6h NDS Wahr.',
+                //    type: 'line',
+                //    marker: { enabled: false },
+                //    lineWidth: 1,
+                //    enableMouseTracking: false,
+                //    data: data["R650"].Values,
+                //    tooltip: { valueSuffix: '%', valueDecimals: 0 },
+                //    color: "#0000cc",
+                //    yAxis: "percent",
+                //    zIndex: 5,
+                //    states: { hover: { lineWidthPlus: 0 } }
+                //},
+                {
+                    name: 'Schnee',
+                    data: data["RRS1C"].Values,
+                    type: "column",
+                    color: "#9999ff",
+                    yAxis: "prec",
+                    tooltip: { valueSuffix: 'mm', valueDecimals: 1 },
+                    zIndex: 5,
+                    pointPadding: 0,
+                },
+                {
+                    name: 'Wolkenbedeckung',
+                    type: 'column',
+                    data: data["NEFF"].Values,
+                    color: "#bfbfbf",
+                    yAxis: "percent",
+                    enableMouseTracking: false,
+                    pointPadding: 0,
+                    zIndex: 1,
+                },
+                {
+                    name: 'Tiefe Wolken',
+                    type: 'column',
+                    data: data["NL"].Values,
+                    color: "#808080",
+                    yAxis: "percent",
+                    enableMouseTracking: false,
+                    pointPadding: 0,
+                    zIndex: 2,
+                },
+                {
+                    name: 'Nebel',
+                    type: 'column',
+                    data: data["WWM"].Values,
+                    color: "#000000",
+                    yAxis: "percent",
+                    enableMouseTracking: false,
+                    pointPadding: 0,
+                    zIndex: 3,
+                },
+                {
+                    name: 'Sig. Weather',
+                    type: "scatter",
+                    data: data["WW"].Values.map(v => {
+                        const value = v[1];
+                        return (sigWeather[value] === undefined)
+                            ? { x: v[0], y: 100, color: sigWeather[999].color, desc: sigWeather[999].desc }
+                            : { x: v[0], y: 100, color: sigWeather[value].color, desc: sigWeather[value].desc }
+                    }),
+                    marker: { radius: 4, symbol: "square" },
+                    zIndex: 99,
+                    yAxis: "percent",
+                    tooltip: {
+                        enabled: true,
+                        pointFormat: '<span style="color:{point.color}">\u25CF</span> {point.desc}<br/>',
+                    }
+                }
+            ]
+        });
+
+        //// *************************************************************************************
+        //// WIND
+        //// *************************************************************************************
+        Highcharts.chart('windDiagram', {
+            title: { text: "10m Windböen und Böenwahrsch. für 45 (gelb), 75 (or.) und 100 (rot) km/h", align: "left", margin: 0, x: 75 },
+            chart: { alignTicks: true },
+            xAxis: {
+                type: 'datetime', tickInterval: 24 * 3600e3, minorTickInterval: 6 * 3600e3,
+                min: minDate, max: maxDate,
+                minorGridLineColor: "#cccccc", gridLineColor: "#999999", gridLineWidth: 2, minorGridLineWidth: 1,
+                dateTimeLabelFormats: { day: '%a, %e.%m.', hour: '%H h' }
+            },
+            yAxis: [
+                {
+                    id: "speed", labels: { format: '{value}km/h' }, title: { text: null },
+                    tickInterval: 10, minorGridLineColor: "#cccccc", gridLineColor: "#999999"
+                },
+                {
+                    id: "direction", labels: { format: '{value}°' }, title: { text: null }, opposite: true,
+                    tickPositions: [0, 90, 180, 270, 360], minorGridLineColor: "#cccccc", gridLineColor: "#999999"
+                },
+                {
+                    id: "percent", min: 0, max: 100, visible: false
+                }
+            ],
+            series: [
+                {
+                    name: '10m Windböen',
+                    type: 'line',
+                    //data: data["FF"].Values,
+                    data: data["FX3"].Values,
+                    tooltip: { valueSuffix: 'km/h', valueDecimals: 0 },
+                    color: "#000000",
+                    yAxis: "speed",
+                    states: { hover: { lineWidthPlus: 0 } },
+                    zIndex: 20,
+                },
+                /*{
+                    name: '10m Windböen 1h',
+                    type: 'line',
+                    data: Mosviewer.getData(station, "FX1"),
+                    tooltip: { valueSuffix: 'km/h', valueDecimals: 0 },
+                    color: "#000000",
+                    yAxis: "speed",
+                    states: { hover: { lineWidthPlus: 0 } },
+                    zIndex: 20,
+                },*/
+                {
+                    name: 'Wahrsch. Böen > 45 km/h',
+                    type: 'column',
+                    data: data["FXH25"].Values,
+                    color: "#ffff00",
+                    yAxis: "percent",
+                    states: { hover: { lineWidthPlus: 0 } },
+                    enableMouseTracking: false,
+                    zIndex: 10,
+                    grouping: false,
+                    borderWidth: 0,
+                    pointPadding: 0
+                },
+                {
+                    name: 'Wahrsch. Böen > 75 km/h',
+                    type: 'column',
+                    data: data["FXH40"].Values,
+                    color: "#ff8000",
+                    yAxis: "percent",
+                    states: { hover: { lineWidthPlus: 0 } },
+                    enableMouseTracking: false,
+                    zIndex: 11,
+                    grouping: false,
+                    borderWidth: 0,
+                    pointPadding: 0
+                },
+                {
+                    name: 'Wahrsch. Böen > 100 km/h',
+                    type: 'column',
+                    data: data["FXH55"].Values,
+                    color: "#ff0000",
+                    yAxis: "percent",
+                    states: { hover: { lineWidthPlus: 0 } },
+                    enableMouseTracking: false,
+                    zIndex: 12,
+                    grouping: false,
+                    borderWidth: 0,
+                    pointPadding: 0
+                },
+                {
+                    name: 'Windrichtung',
+                    lineWidth: 0,
+                    marker: { enabled: true, radius: 1 },
+                    data: data["DD"].Values,
+                    enableMouseTracking: false,
+                    color: "#000000",
+                    yAxis: "direction",
+                    zIndex: 30,
+                }
+            ]
+        });
+</script>
